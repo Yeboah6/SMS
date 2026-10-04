@@ -1,0 +1,61 @@
+<?php
+
+use App\Http\Controllers\AcademicYearController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\OrganizationLookupController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SchoolClassController;
+use App\Http\Controllers\SchoolSettingsController;
+use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StudentController;
+use App\Http\Controllers\StudentDocumentController;
+use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\TeacherAssignmentController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Route;
+
+Route::redirect('/', '/login');
+
+Route::middleware('auth')->group(function (): void {
+    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/academic-years', [AcademicYearController::class, 'index'])->name('academic-years.index');
+    Route::post('/academic-years', [AcademicYearController::class, 'store'])->name('academic-years.store');
+    Route::get('/academic-years/{academicYear}', [AcademicYearController::class, 'show'])->name('academic-years.show');
+    Route::patch('/academic-years/{academicYear}', [AcademicYearController::class, 'update'])->name('academic-years.update');
+    Route::delete('/academic-years/{academicYear}', [AcademicYearController::class, 'destroy'])->name('academic-years.destroy');
+    Route::post('/academic-years/{academicYear}/activate', [AcademicYearController::class, 'activate'])->name('academic-years.activate');
+    Route::post('/academic-years/{academicYear}/complete', [AcademicYearController::class, 'complete'])->name('academic-years.complete');
+    Route::post('/academic-years/{academicYear}/lock', [AcademicYearController::class, 'lock'])->name('academic-years.lock');
+    Route::post('/academic-years/{academicYear}/terms', [AcademicYearController::class, 'storeTerm'])->name('academic-years.terms.store');
+    Route::get('/settings', [SchoolSettingsController::class, 'edit'])->middleware('can:settings.view')->name('settings.edit');
+    Route::put('/settings', [SchoolSettingsController::class, 'update'])->name('settings.update');
+    Route::get('/classes', [SchoolClassController::class, 'index'])->name('classes.index');
+    Route::post('/classes', [SchoolClassController::class, 'store'])->name('classes.store');
+    Route::post('/classes/{schoolClass}/sections', [SchoolClassController::class, 'storeSection'])->name('classes.sections.store');
+    Route::put('/classes/{schoolClass}/subjects', [SchoolClassController::class, 'syncSubjects'])->name('classes.subjects.sync');
+    Route::post('/sections/{section}/teacher-assignments', [TeacherAssignmentController::class, 'storeSection'])->name('sections.teacher-assignments.store');
+    Route::post('/sections/{section}/subject-assignments', [TeacherAssignmentController::class, 'storeSubject'])->name('sections.subject-assignments.store');
+    Route::get('/subjects', [SubjectController::class, 'index'])->name('subjects.index');
+    Route::post('/subjects', [SubjectController::class, 'store'])->name('subjects.store');
+    Route::get('/staff', [StaffController::class, 'index'])->name('staff.index');
+    Route::post('/staff', [StaffController::class, 'store'])->name('staff.store');
+    Route::post('/departments', [OrganizationLookupController::class, 'storeDepartment'])->name('departments.store');
+    Route::post('/designations', [OrganizationLookupController::class, 'storeDesignation'])->name('designations.store');
+    Route::get('/students', [StudentController::class, 'index'])->name('students.index');
+    Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
+    Route::post('/students', [StudentController::class, 'store'])->name('students.store');
+    Route::get('/students/{student}', [StudentController::class, 'show'])->name('students.show');
+    Route::get('/students/{student}/photo', [StudentDocumentController::class, 'photo'])->name('students.photo');
+    Route::get('/students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
+    Route::put('/students/{student}', [StudentController::class, 'update'])->name('students.update');
+    Route::post('/students/{student}/enrolments', [StudentController::class, 'storeEnrolment'])->name('students.enrolments.store');
+    Route::post('/students/{student}/documents', [StudentDocumentController::class, 'store'])->name('students.documents.store');
+    Route::get('/students/{student}/documents/{document}', [StudentDocumentController::class, 'download'])->name('students.documents.download');
+    Route::get('/users', [UserController::class, 'index'])->middleware('can:users.view')->name('users.index');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::get('/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('roles.index');
+    Route::put('/roles/{role}/permissions', [RoleController::class, 'update'])->name('roles.permissions.update');
+    Route::get('/permissions', [PermissionController::class, 'index'])->middleware('can:permissions.view')->name('permissions.index');
+});
