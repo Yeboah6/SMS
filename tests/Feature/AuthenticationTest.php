@@ -32,8 +32,23 @@ test('a user can sign in and reach the dashboard', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Dashboard')
-            ->where('accountCount', 1)
+            ->where('dashboard.roleLabel', 'School member')
+            ->where('dashboard.metrics', [])
             ->where('auth.user.email', $user->email));
+});
+
+test('deactivated accounts cannot sign in', function () {
+    $user = User::factory()->create([
+        'password' => 'StrongSchoolPassword!42',
+    ]);
+    $user->delete();
+
+    $this->from('/login')->post('/login', [
+        'email' => $user->email,
+        'password' => 'StrongSchoolPassword!42',
+    ])->assertRedirect('/login')->assertSessionHasErrors('email');
+
+    $this->assertGuest();
 });
 
 test('invalid credentials do not authenticate a user', function () {

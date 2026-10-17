@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AcademicYearStatus;
 use App\Models\AcademicYear;
 use App\Models\ClassSubject;
+use App\Models\FeeStructure;
 use App\Models\SchoolClass;
 use App\Models\Section;
 use App\Models\Staff;
@@ -30,6 +31,48 @@ class AcademicStructureService
     }
 
     /**
+     * @param  array{name: string, sort_order: int}  $data
+     */
+    public function updateClass(SchoolClass $schoolClass, array $data): SchoolClass
+    {
+        return DB::transaction(function () use ($schoolClass, $data): SchoolClass {
+            $schoolClass = SchoolClass::query()
+                ->with('academicYear')
+                ->lockForUpdate()
+                ->findOrFail($schoolClass->getKey());
+            $this->ensureYearEditable($schoolClass->academicYear);
+            $schoolClass->update($data);
+
+            return $schoolClass->refresh();
+        });
+    }
+
+    public function deleteClass(SchoolClass $schoolClass): void
+    {
+        DB::transaction(function () use ($schoolClass): void {
+            $schoolClass = SchoolClass::query()
+                ->with('academicYear')
+                ->lockForUpdate()
+                ->findOrFail($schoolClass->getKey());
+            $this->ensureYearEditable($schoolClass->academicYear);
+
+            if (
+                $schoolClass->sections()->exists()
+                || $schoolClass->classSubjects()->exists()
+                || $schoolClass->enrolments()->exists()
+                || $schoolClass->exams()->exists()
+                || FeeStructure::query()->where('class_id', $schoolClass->id)->exists()
+            ) {
+                throw ValidationException::withMessages([
+                    'schoolClass' => 'This class has sections or academic/financial records and cannot be deleted.',
+                ]);
+            }
+
+            $schoolClass->delete();
+        });
+    }
+
+    /**
      * @param  array{name: string, capacity?: int|null}  $data
      */
     public function createSection(SchoolClass $schoolClass, array $data): Section
@@ -45,6 +88,42 @@ class AcademicStructureService
                 ...$data,
                 'academic_year_id' => $schoolClass->academic_year_id,
             ]);
+        });
+    }
+
+    /**
+     * @param  array{name: string, capacity?: int|null}  $data
+     */
+    public function updateSection(Section $section, array $data): Section
+    {
+        return DB::transaction(function () use ($section, $data): Section {
+            $section = Section::query()->with('academicYear')->lockForUpdate()->findOrFail($section->getKey());
+            $this->ensureYearEditable($section->academicYear);
+            $section->update($data);
+
+            return $section->refresh();
+        });
+    }
+
+    public function deleteSection(Section $section): void
+    {
+        DB::transaction(function () use ($section): void {
+            $section = Section::query()->with('academicYear')->lockForUpdate()->findOrFail($section->getKey());
+            $this->ensureYearEditable($section->academicYear);
+
+            if (
+                $section->enrolments()->exists()
+                || $section->attendances()->exists()
+                || $section->homeworkAssignments()->exists()
+                || $section->teacherClassAssignments()->exists()
+                || $section->teacherSubjectAssignments()->exists()
+            ) {
+                throw ValidationException::withMessages([
+                    'section' => 'This section has academic records or teacher assignments and cannot be deleted.',
+                ]);
+            }
+
+            $section->delete();
         });
     }
 

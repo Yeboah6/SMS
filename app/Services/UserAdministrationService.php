@@ -12,16 +12,22 @@ class UserAdministrationService
     /**
      * @param  array{name: string, email: string, password: string, role: string}  $data
      */
-    public function create(array $data): User
+    public function create(array $data, User $actor): User
     {
-        return DB::transaction(function () use ($data): User {
+        return DB::transaction(function () use ($data, $actor): User {
+            $role = Role::findByName($data['role'], 'web');
+
+            if ($role->name === 'Super Admin' && ! $actor->hasRole('Super Admin')) {
+                throw new AuthorizationException('Only a Super Admin can provision another Super Admin account.');
+            }
+
             $user = User::query()->create([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'password' => $data['password'],
             ]);
 
-            $user->syncRoles([Role::findByName($data['role'], 'web')]);
+            $user->syncRoles([$role]);
 
             return $user;
         });
@@ -35,6 +41,13 @@ class UserAdministrationService
         return DB::transaction(function () use ($user, $data, $actor): User {
             $user = User::query()->lockForUpdate()->findOrFail($user->id);
             $newRole = Role::findByName($data['role'], 'web');
+
+            if (
+                ($user->hasRole('Super Admin') || $newRole->name === 'Super Admin')
+                && ! $actor->hasRole('Super Admin')
+            ) {
+                throw new AuthorizationException('Only a Super Admin can manage Super Admin accounts.');
+            }
 
             if ($user->is($actor) && $user->hasRole('Super Admin') && $newRole->name !== 'Super Admin') {
                 throw new AuthorizationException('You cannot remove your own Super Admin access.');
@@ -60,6 +73,27 @@ class UserAdministrationService
         });
     }
 
+    public function delete(User $user, User $actor): void
+    {
+        DB::transaction(function () use ($user, $actor): void {
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+
+            if ($user->is($actor)) {
+                throw new AuthorizationException('You cannot delete your own account.');
+            }
+
+            if ($user->hasRole('Super Admin')) {
+                if (! $actor->hasRole('Super Admin')) {
+                    throw new AuthorizationException('Only a Super Admin can remove another Super Admin account.');
+                }
+
+                $this->ensureAnotherSuperAdminExists();
+            }
+
+            $user->delete();
+        });
+    }
+
     private function ensureAnotherSuperAdminExists(): void
     {
         $superAdmins = User::query()
@@ -68,7 +102,7 @@ class UserAdministrationService
             ->get(['users.id']);
 
         if ($superAdmins->count() <= 1) {
-            throw new AuthorizationException('The final Super Admin account cannot be demoted.');
+            throw new AuthorizationException('The final Super Admin account must remain active.');
         }
     }
 }

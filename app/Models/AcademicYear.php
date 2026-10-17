@@ -30,6 +30,26 @@ class AcademicYear extends Model
         return $this->hasMany(SchoolClass::class);
     }
 
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class, 'academic_year_id');
+    }
+
+    public function homeworkAssignments(): HasMany
+    {
+        return $this->hasMany(HomeworkAssignment::class);
+    }
+
+    public function exams(): HasMany
+    {
+        return $this->hasMany(Exam::class);
+    }
+
+    public function timetableSlots(): HasMany
+    {
+        return $this->hasMany(TimetableSlot::class);
+    }
+
     /**
      * @param  Builder<static>  $query
      * @return Builder<static>

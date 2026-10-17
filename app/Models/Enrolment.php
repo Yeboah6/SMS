@@ -6,6 +6,7 @@ use App\Models\Concerns\BelongsToAcademicYear;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'academic_year_id',
@@ -42,5 +43,15 @@ class Enrolment extends Model
     public function section(): BelongsTo
     {
         return $this->belongsTo(Section::class);
+    }
+
+    public function promotionAsSource(): HasOne
+    {
+        return $this->hasOne(Promotion::class, 'source_enrolment_id');
+    }
+
+    public function transferAsSource(): HasOne
+    {
+        return $this->hasOne(StudentTransfer::class);
     }
 }

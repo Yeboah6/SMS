@@ -10,7 +10,10 @@ class StoreUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('users.create') ?? false;
+        $actor = $this->user();
+
+        return ($actor?->can('users.create') ?? false)
+            && ($this->input('role') !== 'Super Admin' || $actor->hasRole('Super Admin'));
     }
 
     public function rules(): array

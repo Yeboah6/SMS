@@ -18,4 +18,14 @@ class Subject extends Model
     {
         return $this->hasMany(TeacherSubjectAssignment::class);
     }
+
+    public function homeworkAssignments(): HasMany
+    {
+        return $this->hasMany(HomeworkAssignment::class);
+    }
+
+    public function examSubjects(): HasMany
+    {
+        return $this->hasMany(ExamSubject::class);
+    }
 }

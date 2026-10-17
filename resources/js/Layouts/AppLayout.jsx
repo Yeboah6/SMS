@@ -9,32 +9,118 @@ import {
     LogOut,
     Menu,
     CalendarDays,
+    ChevronRight,
     Search,
     UsersRound,
     ShieldCheck,
     SlidersHorizontal,
     X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const navigation = [
     { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Academic years', href: '/academic-years', icon: CalendarDays, permission: 'academic_years.view' },
-    { label: 'Classes & sections', href: '/classes', icon: ClipboardList, permission: 'classes.view' },
-    { label: 'Subjects', href: '/subjects', icon: BookOpen, permission: 'subjects.view' },
-    { label: 'Staff', href: '/staff', icon: UsersRound, permission: 'staff.view' },
-    { label: 'Students', href: '/students', icon: GraduationCap, permission: 'students.view' },
-    { label: 'School settings', href: '/settings', icon: SlidersHorizontal, permission: 'settings.view' },
-    { label: 'Users', href: '/users', icon: GraduationCap, permission: 'users.view' },
-    { label: 'Roles', href: '/roles', icon: BookOpen, permission: 'roles.view' },
-    { label: 'Permissions', href: '/permissions', icon: ShieldCheck, permission: 'permissions.view' },
+    {
+        label: 'Academics',
+        icon: BookOpen,
+        children: [
+            { label: 'Academic years', href: '/academic-years', icon: CalendarDays, permission: 'academic_years.view' },
+            { label: 'Classes & sections', href: '/classes', icon: ClipboardList, permission: 'classes.view' },
+            { label: 'Subjects', href: '/subjects', icon: BookOpen, permission: 'subjects.view' },
+            { label: 'Attendance', href: '/attendance', icon: CalendarDays, permissions: ['attendance.view', 'portal.attendance.view'], roles: ['Principal', 'Teacher', 'Student', 'Parent', 'Super Admin'] },
+            { label: 'Timetable', href: '/timetable', icon: CalendarDays, permissions: ['timetable.manage', 'timetable.view', 'portal.timetable.view'], roles: ['Principal', 'Teacher', 'Student', 'Parent', 'Super Admin'] },
+            { label: 'Homework', href: '/homework', icon: ClipboardList, permissions: ['homework.view', 'portal.homework.view'], roles: ['Teacher', 'Principal', 'Student', 'Parent', 'Super Admin'] },
+            { label: 'Exams & results', href: '/exams', icon: GraduationCap, permissions: ['exams.view', 'portal.results.view'], roles: ['Teacher', 'Principal', 'Student', 'Parent', 'Super Admin'] },
+            { label: 'Promotions', href: '/promotions', icon: GraduationCap, permission: 'students.promote' },
+        ],
+    },
+    {
+        label: 'People',
+        icon: UsersRound,
+        children: [
+            { label: 'Staff', href: '/staff', icon: UsersRound, permission: 'staff.view' },
+            { label: 'Students', href: '/students', icon: GraduationCap, permission: 'students.view' },
+            { label: 'Admissions', href: '/admissions', icon: ClipboardList, permission: 'admissions.view' },
+            { label: 'Leave requests', href: '/leave-requests', icon: CalendarDays, permissions: ['leave.view', 'leave.apply', 'portal.leave.apply'], roles: ['Principal', 'Teacher', 'Student', 'Parent', 'Super Admin'] },
+            { label: 'Certificates', href: '/certificates', icon: GraduationCap, permissions: ['certificates.view', 'certificates.issue', 'portal.certificates.request'], roles: ['Principal', 'Student', 'Parent', 'Super Admin'] },
+        ],
+    },
+    {
+        label: 'Finance',
+        icon: ClipboardList,
+        children: [
+            { label: 'Fees & invoices', href: '/fees', activePaths: ['/fees', '/fee-heads', '/fee-structures', '/invoices'], icon: ClipboardList, permissions: ['fees.view', 'portal.fees.view'], roles: ['Accountant', 'Student', 'Parent', 'Super Admin'] },
+            { label: 'Fee collection report', href: '/reports/financial', activePaths: ['/reports/financial', '/reports/financial/export'], matchNested: false, icon: ClipboardList, permission: 'reports.financial.view' },
+            { label: 'Outstanding fees report', href: '/reports/financial/outstanding', activePaths: ['/reports/financial/outstanding', '/reports/financial/outstanding/export'], matchNested: false, icon: ClipboardList, permission: 'reports.financial.view' },
+        ],
+    },
+    {
+        label: 'Reports',
+        icon: ClipboardList,
+        children: [
+            { label: 'Attendance report', href: '/reports/attendance', icon: ClipboardList, permission: 'reports.view' },
+            { label: 'Academic results report', href: '/reports/academic', icon: GraduationCap, permission: 'results.view' },
+        ],
+    },
+    {
+        label: 'Administration',
+        icon: SlidersHorizontal,
+        children: [
+            { label: 'School settings', href: '/settings', icon: SlidersHorizontal, permission: 'settings.view' },
+            { label: 'Users', href: '/users', icon: GraduationCap, permission: 'users.view' },
+            { label: 'Roles', href: '/roles', icon: BookOpen, permission: 'roles.view' },
+            { label: 'Permissions', href: '/permissions', icon: ShieldCheck, permission: 'permissions.view' },
+        ],
+    },
+    {
+        label: 'Library',
+        icon: BookOpen,
+        children: [
+            { label: 'Books inventory', href: '/library/books', activePaths: ['/library/books', '/library/copies'], icon: BookOpen, permission: 'library.view', roles: ['Librarian', 'Super Admin'] },
+            { label: 'Loans', href: '/library/loans', icon: ClipboardList, permission: 'library.view', roles: ['Librarian', 'Super Admin'] },
+            { label: 'Library', href: '/library', matchNested: false, icon: BookOpen, permission: 'portal.library.view', roles: ['Student', 'Parent'] },
+        ],
+    },
+    { label: 'Notices', href: '/notices', icon: Bell, permissions: ['notices.view', 'portal.notices.view'], roles: ['Principal', 'Teacher', 'Accountant', 'Librarian', 'Receptionist', 'Student', 'Parent', 'Super Admin'] },
 ];
 
+function isNavigationItemVisible(item, user, isSuperAdmin) {
+    return (!item.permission || isSuperAdmin || user.permissions.includes(item.permission))
+        && (!item.permissions || isSuperAdmin || item.permissions.some((permission) => user.permissions.includes(permission)))
+        && (!item.roles || item.roles.some((role) => user.roles.includes(role)));
+}
+
+function isNavigationItemActive(item, activePath) {
+    const paths = item.activePaths || [item.href];
+
+    return paths.some((path) => activePath === path || (item.matchNested !== false && activePath.startsWith(`${path}/`)));
+}
+
 export default function AppLayout({ children, title, description }) {
-    const { appName, auth, activeAcademicYear, schoolSettings } = usePage().props;
+    const { appName, auth, activeAcademicYear, schoolSettings, schoolLogoUrl } = usePage().props;
     const [menuOpen, setMenuOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
-    const activeHref = usePage().url;
+    const activePath = usePage().url.split('?')[0];
+    const isSuperAdmin = auth.user.roles.includes('Super Admin');
+    const user = auth.user;
+    const [expandedGroups, setExpandedGroups] = useState({});
+    const visibleNavigation = navigation
+        .map((item) => item.children
+            ? { ...item, children: item.children.filter((child) => isNavigationItemVisible(child, auth.user, isSuperAdmin)) }
+            : item)
+        .filter((item) => item.children
+            ? item.children.length > 0
+            : isNavigationItemVisible(item, auth.user, isSuperAdmin));
+
+    useEffect(() => {
+        const activeGroup = navigation.find((item) => item.children?.some((child) => (
+            isNavigationItemVisible(child, user, isSuperAdmin)
+            && isNavigationItemActive(child, activePath)
+        )));
+        if (activeGroup) {
+            setExpandedGroups((groups) => ({ ...groups, [activeGroup.label]: true }));
+        }
+    }, [activePath, isSuperAdmin, user]);
 
     function logout() {
         router.post('/logout');
@@ -55,11 +141,15 @@ export default function AppLayout({ children, title, description }) {
                     menuOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >
-                <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
+                <div className="flex h-20 shrink-0 items-center justify-between border-b border-slate-100 px-6">
                     <Link href="/dashboard" className="flex items-center gap-3">
-                        <span className="flex size-10 items-center justify-center rounded-xl bg-teal-700 text-white shadow-sm shadow-teal-900/20">
-                            <GraduationCap aria-hidden="true" size={22} />
-                        </span>
+                        {schoolLogoUrl ? (
+                            <img src={schoolLogoUrl} alt="" className="size-10 shrink-0 rounded-xl border border-slate-200 bg-white object-contain p-1" />
+                        ) : (
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white shadow-sm shadow-teal-900/20">
+                                <GraduationCap aria-hidden="true" size={22} />
+                            </span>
+                        )}
                         <span className="min-w-0">
                             <span className="block truncate text-sm font-bold tracking-tight text-slate-950">
                                 {schoolSettings?.school_name || appName}
@@ -79,18 +169,70 @@ export default function AppLayout({ children, title, description }) {
                     </button>
                 </div>
 
-                <div className="px-4 pt-7">
+                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-7">
                     <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                         Workspace
                     </p>
-                    <nav aria-label="Main navigation" className="mt-3 space-y-1">
-                        {navigation.filter(({ permission }) => !permission || auth.user.permissions.includes(permission)).map(({ label, href, icon: Icon }) => {
-                            const selected = activeHref === href;
+                    <nav aria-label="Main navigation" className="mt-3 space-y-1 pb-4">
+                        {visibleNavigation.map((item) => {
+                            if (item.children) {
+                                const GroupIcon = item.icon;
+                                const expanded = expandedGroups[item.label] ?? false;
+
+                                return (
+                                    <div key={item.label}>
+                                        <button
+                                            type="button"
+                                            aria-expanded={expanded}
+                                            onClick={() => setExpandedGroups((groups) => ({
+                                                ...groups,
+                                                [item.label]: !expanded,
+                                            }))}
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                                        >
+                                            <GroupIcon size={18} strokeWidth={1.8} />
+                                            <span className="flex-1">{item.label}</span>
+                                            <ChevronRight
+                                                size={16}
+                                                className={`transition-transform ${expanded ? 'rotate-90' : ''}`}
+                                            />
+                                        </button>
+                                        {expanded && (
+                                            <div className="ml-4 mt-1 space-y-1 border-l border-slate-200 pl-3">
+                                                {item.children.map((child) => {
+                                                    const ChildIcon = child.icon;
+                                                    const selected = isNavigationItemActive(child, activePath);
+
+                                                    return (
+                                                        <Link
+                                                            key={child.href}
+                                                            href={child.href}
+                                                            onClick={() => setMenuOpen(false)}
+                                                            aria-current={selected ? 'page' : undefined}
+                                                            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                                                                selected
+                                                                    ? 'bg-teal-50 text-teal-800'
+                                                                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                                                            }`}
+                                                        >
+                                                            <ChildIcon size={17} strokeWidth={1.8} />
+                                                            {child.label}
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            const Icon = item.icon;
+                            const selected = isNavigationItemActive(item, activePath);
 
                             return (
                                 <Link
-                                    key={href}
-                                    href={href}
+                                    key={item.href}
+                                    href={item.href}
                                     onClick={() => setMenuOpen(false)}
                                     aria-current={selected ? 'page' : undefined}
                                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
@@ -100,21 +242,21 @@ export default function AppLayout({ children, title, description }) {
                                     }`}
                                 >
                                     <Icon size={18} strokeWidth={1.8} />
-                                    {label}
+                                    {item.label}
                                 </Link>
                             );
                         })}
                     </nav>
                 </div>
 
-                <div className="mt-auto p-4">
+                <div className="shrink-0 p-4">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                             <BookOpen size={16} className="text-teal-700" />
                             School management
                         </div>
                         <p className="mt-2 text-xs leading-5 text-slate-500">
-                            Manage school operations with access scoped by role and academic year.
+                            Everyday with God is Everyday in Victory.
                         </p>
                     </div>
                 </div>

@@ -6,6 +6,9 @@ use Illuminate\Validation\Rule;
 
 class StoreStudentRequest extends StudentProfileRequest
 {
+    /** Letters, digits, spaces and / - _ . so legacy numbers such as 2019/045 or ADM-12 are accepted. */
+    public const ADMISSION_NUMBER_FORMAT = '/^[\pL\pN][\pL\pN\s\/\-_.]*$/u';
+
     public function authorize(): bool
     {
         return $this->user()?->can('students.create')
@@ -16,7 +19,11 @@ class StoreStudentRequest extends StudentProfileRequest
     {
         return [
             ...parent::rules(),
-            'admission_number' => ['required', 'string', 'max:50', Rule::unique('students', 'admission_number')],
+            // Optional: leave blank to generate the next number (ADM0001, ...).
+            'admission_number' => [
+                'nullable', 'string', 'max:50', 'regex:'.self::ADMISSION_NUMBER_FORMAT,
+                Rule::unique('students', 'admission_number'),
+            ],
         ];
     }
 }

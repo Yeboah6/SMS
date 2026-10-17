@@ -90,7 +90,10 @@ export default function Login() {
                             </button>
                         </form>
                         <p className="mt-8 text-center text-xs leading-5 text-slate-400">
-                            Access is provided by your school administrator.
+                            Access is provided by your school administrator.{' '}
+                            <Link href="/enquiry" className="font-semibold text-teal-800 hover:text-teal-950">
+                                Enquire about admissions
+                            </Link>
                         </p>
                     </div>
                 </section>

@@ -3,6 +3,7 @@
 use App\Enums\AcademicYearStatus;
 use App\Models\AcademicYear;
 use App\Models\SchoolClass;
+use App\Models\Section;
 use App\Models\Staff;
 use App\Models\Student;
 use App\Models\Subject;
@@ -146,6 +147,109 @@ test('locked academic years reject new class structure', function () {
     expect(SchoolClass::query()->forAcademicYear($year)->count())->toBe(0);
 });
 
+test('administrators can edit classes and sections within an editable year', function () {
+    $admin = createSuperAdmin();
+    $year = createStructureYear('2040/2041', '2040-08-01', '2041-06-30');
+    $service = app(AcademicStructureService::class);
+    $schoolClass = $service->createClass($year, ['name' => 'Class 1']);
+    $otherClass = $service->createClass($year, ['name' => 'Class 2']);
+    $section = $service->createSection($schoolClass, ['name' => 'A', 'capacity' => 25]);
+
+    $this->actingAs($admin)->patch(route('classes.update', $schoolClass), [
+        'name' => 'Class One',
+        'sort_order' => 2,
+    ])->assertRedirect()->assertSessionHas('status', 'Class updated.');
+
+    $this->actingAs($admin)->patch(route('sections.update', $section), [
+        'name' => 'Blue',
+        'capacity' => 30,
+    ])->assertRedirect()->assertSessionHas('status', 'Section updated.');
+
+    expect($schoolClass->fresh()->name)->toBe('Class One')
+        ->and($schoolClass->fresh()->sort_order)->toBe(2)
+        ->and($section->fresh()->name)->toBe('Blue')
+        ->and($section->fresh()->capacity)->toBe(30)
+        ->and($section->fresh()->academic_year_id)->toBe($year->id)
+        ->and($otherClass->fresh()->name)->toBe('Class 2');
+});
+
+test('class and section edits reject duplicate names and preserve their records', function () {
+    $admin = createSuperAdmin();
+    $year = createStructureYear('2041/2042', '2041-08-01', '2042-06-30');
+    $service = app(AcademicStructureService::class);
+    $firstClass = $service->createClass($year, ['name' => 'Class 1']);
+    $secondClass = $service->createClass($year, ['name' => 'Class 2']);
+    $firstSection = $service->createSection($firstClass, ['name' => 'A']);
+    $secondSection = $service->createSection($firstClass, ['name' => 'B']);
+
+    $this->actingAs($admin)->patch(route('classes.update', $firstClass), [
+        'name' => 'Class 2',
+        'sort_order' => 0,
+    ])->assertSessionHasErrors('name');
+
+    $this->actingAs($admin)->patch(route('sections.update', $firstSection), [
+        'name' => 'B',
+        'capacity' => 20,
+    ])->assertSessionHasErrors('name');
+
+    expect($firstClass->fresh()->name)->toBe('Class 1')
+        ->and($firstSection->fresh()->name)->toBe('A')
+        ->and($secondClass->exists)->toBeTrue()
+        ->and($secondSection->exists)->toBeTrue();
+});
+
+test('administrators can delete unused classes and sections but not records with dependencies', function () {
+    $admin = createSuperAdmin();
+    $year = createStructureYear('2042/2043', '2042-08-01', '2043-06-30');
+    $service = app(AcademicStructureService::class);
+    $unusedClass = $service->createClass($year, ['name' => 'Unused class']);
+    $this->actingAs($admin)->delete(route('classes.destroy', $unusedClass))
+        ->assertRedirect()->assertSessionHas('status', 'Class deleted.');
+    expect(SchoolClass::query()->find($unusedClass->id))->toBeNull();
+
+    $schoolClass = $service->createClass($year, ['name' => 'In-use class']);
+    $section = $service->createSection($schoolClass, ['name' => 'A']);
+    $this->actingAs($admin)->delete(route('classes.destroy', $schoolClass))
+        ->assertSessionHasErrors('schoolClass');
+    $this->actingAs($admin)->delete(route('sections.destroy', $section))
+        ->assertRedirect()->assertSessionHas('status', 'Section deleted.');
+
+    expect(Section::query()->find($section->id))->toBeNull();
+
+    $teacher = createStructureTeacher('T-DELETE', 'Taylor Assigned')[1];
+    $assignedSection = $service->createSection($schoolClass, ['name' => 'B']);
+    $service->assignTeacherToSection($teacher, $assignedSection);
+
+    $this->actingAs($admin)->delete(route('sections.destroy', $assignedSection))
+        ->assertSessionHasErrors('section');
+    expect($assignedSection->fresh())->not->toBeNull();
+});
+
+test('locked academic years reject class and section edits and deletion', function () {
+    $admin = createSuperAdmin();
+    $year = createStructureYear('2043/2044', '2043-08-01', '2044-06-30');
+    $service = app(AcademicStructureService::class);
+    $schoolClass = $service->createClass($year, ['name' => 'Locked class']);
+    $section = $service->createSection($schoolClass, ['name' => 'A']);
+    $year->update(['status' => AcademicYearStatus::Locked]);
+
+    $this->actingAs($admin)->patch(route('classes.update', $schoolClass), [
+        'name' => 'Changed class',
+        'sort_order' => 1,
+    ])->assertSessionHasErrors('academic_year');
+    $this->actingAs($admin)->delete(route('classes.destroy', $schoolClass))
+        ->assertSessionHasErrors('academic_year');
+    $this->actingAs($admin)->patch(route('sections.update', $section), [
+        'name' => 'Changed section',
+        'capacity' => 10,
+    ])->assertSessionHasErrors('academic_year');
+    $this->actingAs($admin)->delete(route('sections.destroy', $section))
+        ->assertSessionHasErrors('academic_year');
+
+    expect($schoolClass->fresh()->name)->toBe('Locked class')
+        ->and($section->fresh()->name)->toBe('A');
+});
+
 test('class, subject, and staff management pages render only for permitted users', function () {
     $admin = createSuperAdmin();
 
@@ -180,6 +284,104 @@ test('teacher profiles must be linked to users with the Teacher role', function 
     ])->assertSessionHasErrors('user_id');
 
     expect(Staff::query()->count())->toBe(0);
+});
+
+test('administrators can edit staff profiles and soft-delete unassigned staff', function () {
+    $admin = createSuperAdmin();
+    $teacherUser = User::factory()->create();
+    $teacherUser->assignRole('Teacher');
+    $staff = Staff::query()->create([
+        'staff_number' => 'STAFF-EDIT',
+        'name' => 'Original Name',
+        'is_teacher' => false,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($admin)->patch(route('staff.update', $staff), [
+        'user_id' => $teacherUser->id,
+        'department_id' => '',
+        'designation_id' => '',
+        'staff_number' => 'STAFF-UPDATED',
+        'is_teacher' => true,
+        'name' => 'Updated Name',
+        'email' => 'updated@example.test',
+        'phone' => '555-1010',
+        'joining_date' => today()->toDateString(),
+        'qualifications' => 'Teaching diploma',
+        'status' => 'active',
+    ])->assertRedirect()->assertSessionHas('status', 'Staff profile updated.');
+
+    expect($staff->fresh()->name)->toBe('Updated Name')
+        ->and($staff->fresh()->staff_number)->toBe('STAFF-UPDATED')
+        ->and($staff->fresh()->user_id)->toBe($teacherUser->id)
+        ->and($staff->fresh()->is_teacher)->toBeTrue();
+
+    $this->actingAs($admin)->delete(route('staff.destroy', $staff))
+        ->assertRedirect()->assertSessionHas('status', 'Staff profile deleted.');
+
+    expect(Staff::query()->find($staff->id))->toBeNull()
+        ->and(Staff::withTrashed()->findOrFail($staff->id)->trashed())->toBeTrue();
+});
+
+test('staff profiles with teaching assignments cannot be deleted or made non-teaching', function () {
+    $admin = createSuperAdmin();
+    $year = createStructureYear('2044/2045', '2044-08-01', '2045-06-30');
+    $schoolClass = app(AcademicStructureService::class)->createClass($year, ['name' => 'Teacher class']);
+    $section = app(AcademicStructureService::class)->createSection($schoolClass, ['name' => 'A']);
+    [, $teacher] = createStructureTeacher('T-PROTECTED', 'Assigned Teacher');
+    app(AcademicStructureService::class)->assignTeacherToSection($teacher, $section);
+
+    $this->actingAs($admin)->delete(route('staff.destroy', $teacher))
+        ->assertSessionHasErrors('staff');
+    $this->actingAs($admin)->patch(route('staff.update', $teacher), [
+        'user_id' => $teacher->user_id,
+        'department_id' => '',
+        'designation_id' => '',
+        'staff_number' => $teacher->staff_number,
+        'is_teacher' => false,
+        'name' => $teacher->name,
+        'email' => '',
+        'phone' => '',
+        'joining_date' => '',
+        'qualifications' => '',
+        'status' => 'active',
+    ])->assertSessionHasErrors('is_teacher');
+
+    expect(Staff::query()->find($teacher->id))->not->toBeNull()
+        ->and($teacher->fresh()->is_teacher)->toBeTrue();
+});
+
+test('students cannot update or delete class, section, or staff records', function () {
+    $year = createStructureYear('2045/2046', '2045-08-01', '2046-06-30');
+    $schoolClass = app(AcademicStructureService::class)->createClass($year, ['name' => 'Protected class']);
+    $section = app(AcademicStructureService::class)->createSection($schoolClass, ['name' => 'A']);
+    $staff = Staff::query()->create([
+        'staff_number' => 'STAFF-PROTECTED',
+        'name' => 'Protected Staff',
+        'is_teacher' => false,
+        'status' => 'active',
+    ]);
+    $student = User::factory()->create();
+    $student->assignRole('Student');
+
+    $this->actingAs($student)->patch(route('classes.update', $schoolClass), [
+        'name' => 'Changed',
+        'sort_order' => 1,
+    ])->assertForbidden();
+    $this->actingAs($student)->delete(route('classes.destroy', $schoolClass))->assertForbidden();
+    $this->actingAs($student)->patch(route('sections.update', $section), [
+        'name' => 'Changed',
+        'capacity' => 20,
+    ])->assertForbidden();
+    $this->actingAs($student)->delete(route('sections.destroy', $section))->assertForbidden();
+    $this->actingAs($student)->patch(route('staff.update', $staff), [
+        'staff_number' => 'CHANGED',
+    ])->assertForbidden();
+    $this->actingAs($student)->delete(route('staff.destroy', $staff))->assertForbidden();
+
+    expect($schoolClass->fresh()->name)->toBe('Protected class')
+        ->and($section->fresh()->name)->toBe('A')
+        ->and(Staff::query()->find($staff->id))->not->toBeNull();
 });
 
 test('authorized administrators can assign teachers to sections and subjects idempotently', function () {

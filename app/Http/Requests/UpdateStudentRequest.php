@@ -24,7 +24,10 @@ class UpdateStudentRequest extends StudentProfileRequest
 
         return [
             ...parent::rules(),
-            'admission_number' => ['required', 'string', 'max:50', Rule::unique('students', 'admission_number')->ignore($student->id)],
+            'admission_number' => [
+                'required', 'string', 'max:50', 'regex:'.StoreStudentRequest::ADMISSION_NUMBER_FORMAT,
+                Rule::unique('students', 'admission_number')->ignore($student->id),
+            ],
         ];
     }
 }

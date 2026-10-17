@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AcademicYearStatus;
+use App\Concerns\ScopesTeacherAccess;
 use App\Http\Requests\StoreSchoolClassRequest;
-use App\Http\Requests\StoreSectionRequest;
 use App\Http\Requests\SyncClassSubjectsRequest;
+use App\Http\Requests\UpdateSchoolClassRequest;
 use App\Models\AcademicYear;
 use App\Models\ClassSubject;
 use App\Models\SchoolClass;
 use App\Models\Section;
-use App\Models\Staff;
 use App\Models\Subject;
 use App\Services\AcademicStructureService;
 use Illuminate\Http\RedirectResponse;
@@ -19,37 +20,34 @@ use Inertia\Response;
 
 class SchoolClassController extends Controller
 {
+    use ScopesTeacherAccess;
+
     public function index(Request $request): Response
     {
-        abort_unless($request->user()->can('classes.view'), 403);
+        $user = $request->user();
+        abort_unless($user->can('classes.view'), 403);
 
         $years = AcademicYear::query()->orderByDesc('start_date')->get(['id', 'name', 'status']);
         $yearId = $request->integer('academic_year_id')
             ?: AcademicYear::active()->value('id')
             ?: $years->first()?->id;
-        $user = $request->user();
-        $isScopedTeacher = $user->hasRole('Teacher') && ! $user->hasRole('Super Admin');
-        $teacherStaffId = $isScopedTeacher
-            ? Staff::query()->where('user_id', $user->id)->value('id')
-            : null;
-        $classesQuery = SchoolClass::query()
-            ->with([
-                'sections.teacherClassAssignments.staff',
-                'sections.teacherSubjectAssignments.staff',
-                'sections.teacherSubjectAssignments.subject',
-                'classSubjects.subject',
-            ])
+        $staffId = $this->scopedStaffId($request);
+
+        $classes = SchoolClass::query()
+            ->with(['sections' => fn ($query) => $query->withCount('students')->with('teacherClassAssignments')])
+            ->withCount('classSubjects')
             ->when(
                 $yearId,
                 fn ($query) => $query->forAcademicYear((int) $yearId),
                 fn ($query) => $query->whereRaw('1 = 0'),
-            );
-
-        if ($isScopedTeacher) {
-            $classesQuery->whereHas('sections.teacherClassAssignments', fn ($query) => $query
-                ->where('staff_id', $teacherStaffId ?? 0)
-                ->where('academic_year_id', (int) $yearId));
-        }
+            )
+            ->when($staffId !== null, fn ($query) => $query->whereHas(
+                'sections.teacherClassAssignments',
+                fn ($query) => $query->where('staff_id', $staffId)->where('academic_year_id', (int) $yearId),
+            ))
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('Classes/Index', [
             'years' => $years->map(fn (AcademicYear $year): array => [
@@ -58,68 +56,47 @@ class SchoolClassController extends Controller
                 'status' => $year->status->value,
             ]),
             'selectedYearId' => $yearId,
-            'classes' => $classesQuery
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get()
-                ->map(fn (SchoolClass $schoolClass): array => [
+            'yearLocked' => $this->yearIsLocked($yearId ? (int) $yearId : null),
+            'classes' => $classes->map(function (SchoolClass $schoolClass) use ($staffId): array {
+                $sections = $this->visibleSections($schoolClass, $staffId);
+
+                return [
                     'id' => $schoolClass->id,
                     'name' => $schoolClass->name,
                     'sortOrder' => $schoolClass->sort_order,
-                    'sections' => $schoolClass->sections
-                        ->when($isScopedTeacher, fn ($sections) => $sections->filter(
-                            fn (Section $section): bool => $section->teacherClassAssignments->contains('staff_id', $teacherStaffId),
-                        ))
-                        ->map(fn (Section $section): array => [
-                            'id' => $section->id,
-                            'name' => $section->name,
-                            'capacity' => $section->capacity,
-                            'teacherAssignments' => $user->can('teacher_assignments.manage')
-                                ? $section->teacherClassAssignments->map(fn ($assignment): array => [
-                                    'staffId' => $assignment->staff_id,
-                                    'name' => $assignment->staff->name,
-                                ])->values()
-                                : [],
-                            'subjectAssignments' => $user->can('teacher_assignments.manage')
-                                ? $section->teacherSubjectAssignments->map(fn ($assignment): array => [
-                                    'staffId' => $assignment->staff_id,
-                                    'staffName' => $assignment->staff->name,
-                                    'subjectId' => $assignment->subject_id,
-                                    'subjectName' => $assignment->subject->name,
-                                ])->values()
-                                : [],
-                        ])->values(),
-                    'subjects' => $schoolClass->classSubjects
-                        ->when($isScopedTeacher, function ($assignments) use ($schoolClass, $teacherStaffId) {
-                            $teacherSubjectIds = $schoolClass->sections
-                                ->flatMap(fn (Section $section) => $section->teacherSubjectAssignments
-                                    ->where('staff_id', $teacherStaffId)
-                                    ->pluck('subject_id'))
-                                ->unique();
-
-                            return $assignments->whereIn('subject_id', $teacherSubjectIds);
-                        })
-                        ->map(fn (ClassSubject $assignment): array => [
-                            'id' => $assignment->subject->id,
-                            'code' => $assignment->subject->code,
-                            'name' => $assignment->subject->name,
-                        ])->values(),
-                ]),
-            'subjects' => Subject::query()
-                ->when($isScopedTeacher, fn ($query) => $query->whereHas('teacherSubjectAssignments', fn ($query) => $query
-                    ->where('staff_id', $teacherStaffId ?? 0)
-                    ->where('academic_year_id', (int) $yearId)))
-                ->orderBy('name')
-                ->get(['id', 'code', 'name']),
-            'teachers' => $user->can('teacher_assignments.manage')
-                ? Staff::query()->where('is_teacher', true)->where('status', 'active')->orderBy('name')->get(['id', 'staff_number', 'name'])
-                : [],
+                    'sectionsCount' => $sections->count(),
+                    'subjectsCount' => $schoolClass->class_subjects_count,
+                    'studentsCount' => (int) $sections->sum('students_count'),
+                ];
+            })->values(),
             'can' => [
-                'create' => $request->user()->can('classes.create'),
-                'createSection' => $request->user()->can('sections.create'),
-                'assignSubjects' => $request->user()->can('class_subjects.assign'),
-                'assignTeachers' => $request->user()->can('teacher_assignments.manage'),
+                'create' => $user->can('classes.create'),
+                'update' => $user->can('classes.update'),
+                'delete' => $user->can('classes.delete'),
             ],
+        ]);
+    }
+
+    public function create(Request $request): Response
+    {
+        abort_unless($request->user()->can('classes.create'), 403);
+
+        $years = AcademicYear::query()
+            ->where('status', '!=', AcademicYearStatus::Locked->value)
+            ->orderByDesc('start_date')
+            ->get(['id', 'name', 'status']);
+
+        $requested = $request->integer('academic_year_id')
+            ?: AcademicYear::active()->value('id');
+        $selected = $years->firstWhere('id', $requested)?->id ?? $years->first()?->id;
+
+        return Inertia::render('Classes/Create', [
+            'years' => $years->map(fn (AcademicYear $year): array => [
+                'id' => $year->id,
+                'name' => $year->name,
+                'status' => $year->status->value,
+            ]),
+            'selectedYearId' => $selected,
         ]);
     }
 
@@ -132,17 +109,126 @@ class SchoolClassController extends Controller
 
         $service->createClass($year, $data);
 
-        return back()->with('status', 'Class created.');
+        return redirect()
+            ->route('classes.index', ['academic_year_id' => $year->id])
+            ->with('status', 'Class created.');
     }
 
-    public function storeSection(
-        StoreSectionRequest $request,
+    public function show(Request $request, SchoolClass $schoolClass): Response
+    {
+        $user = $request->user();
+        abort_unless($user->can('classes.view'), 403);
+
+        $staffId = $this->scopedStaffId($request);
+
+        $schoolClass->load([
+            'sections' => fn ($query) => $query
+                ->orderBy('name')
+                ->with(['students', 'teacherClassAssignments', 'teacherSubjectAssignments']),
+            'classSubjects.subject',
+        ]);
+
+        $sections = $this->visibleSections($schoolClass, $staffId);
+        abort_if($staffId !== null && $sections->isEmpty(), 403);
+
+        $teacherSubjectIds = $staffId === null
+            ? null
+            : $sections
+                ->flatMap(fn (Section $section) => $section->teacherSubjectAssignments
+                    ->where('staff_id', $staffId)
+                    ->pluck('subject_id'))
+                ->unique();
+
+        $canViewStudents = $user->can('students.view');
+        $year = AcademicYear::query()->find($schoolClass->academic_year_id);
+
+        return Inertia::render('Classes/Show', [
+            'schoolClass' => [
+                'id' => $schoolClass->id,
+                'name' => $schoolClass->name,
+                'sortOrder' => $schoolClass->sort_order,
+                'yearId' => $year?->id,
+                'yearName' => $year?->name,
+            ],
+            'yearLocked' => $this->yearIsLocked($year?->id),
+            'sections' => $sections->map(fn (Section $section): array => [
+                'id' => $section->id,
+                'name' => $section->name,
+                'capacity' => $section->capacity,
+                'studentsCount' => $section->students->count(),
+            ])->values(),
+            'subjects' => $schoolClass->classSubjects
+                ->when($teacherSubjectIds !== null, fn ($rows) => $rows->whereIn('subject_id', $teacherSubjectIds))
+                ->map(fn (ClassSubject $row): array => [
+                    'id' => $row->subject->id,
+                    'code' => $row->subject->code,
+                    'name' => $row->subject->name,
+                ])->values(),
+            'availableSubjects' => Subject::query()
+                ->when($staffId !== null, fn ($query) => $query->whereHas(
+                    'teacherSubjectAssignments',
+                    fn ($query) => $query->where('staff_id', $staffId)->where('academic_year_id', (int) $schoolClass->academic_year_id),
+                ))
+                ->orderBy('name')
+                ->get(['id', 'code', 'name']),
+            'students' => $canViewStudents
+                ? $sections
+                    ->flatMap(fn (Section $section) => $section->students
+                        ->map(fn ($student) => $this->studentPayload($student, $section)))
+                    ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                    ->values()
+                : [],
+            'can' => [
+                'update' => $user->can('classes.update'),
+                'delete' => $user->can('classes.delete'),
+                'createSection' => $user->can('sections.create'),
+                'updateSection' => $user->can('sections.update'),
+                'deleteSection' => $user->can('sections.delete'),
+                'assignSubjects' => $user->can('class_subjects.assign'),
+                'viewStudents' => $canViewStudents,
+            ],
+        ]);
+    }
+
+    public function edit(Request $request, SchoolClass $schoolClass): Response
+    {
+        abort_unless($request->user()->can('classes.update'), 403);
+        abort_if($this->yearIsLocked((int) $schoolClass->academic_year_id), 403);
+
+        return Inertia::render('Classes/Edit', [
+            'schoolClass' => [
+                'id' => $schoolClass->id,
+                'name' => $schoolClass->name,
+                'sortOrder' => $schoolClass->sort_order,
+            ],
+        ]);
+    }
+
+    public function update(
+        UpdateSchoolClassRequest $request,
         SchoolClass $schoolClass,
         AcademicStructureService $service,
     ): RedirectResponse {
-        $service->createSection($schoolClass, $request->validated());
+        $service->updateClass($schoolClass, $request->validated());
 
-        return back()->with('status', 'Section created.');
+        return redirect()
+            ->route('classes.show', $schoolClass)
+            ->with('status', 'Class updated.');
+    }
+
+    public function destroy(
+        Request $request,
+        SchoolClass $schoolClass,
+        AcademicStructureService $service,
+    ): RedirectResponse {
+        abort_unless($request->user()->can('classes.delete'), 403);
+
+        $yearId = $schoolClass->academic_year_id;
+        $service->deleteClass($schoolClass);
+
+        return redirect()
+            ->route('classes.index', ['academic_year_id' => $yearId])
+            ->with('status', 'Class deleted.');
     }
 
     public function syncSubjects(

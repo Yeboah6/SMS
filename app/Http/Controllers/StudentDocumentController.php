@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreStudentDocumentRequest;
 use App\Models\Student;
 use App\Models\StudentDocument;
+use App\Services\StudentActivityService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -15,6 +17,7 @@ class StudentDocumentController extends Controller
     public function store(
         StoreStudentDocumentRequest $request,
         Student $student,
+        StudentActivityService $activities,
     ): RedirectResponse {
         $file = $request->file('document');
         $storagePath = $file->storeAs(
@@ -27,14 +30,27 @@ class StudentDocumentController extends Controller
             abort(500, 'The student document could not be stored.');
         }
 
-        $student->documents()->create([
-            'uploaded_by' => $request->user()->id,
-            'category' => $request->validated('category'),
-            'original_name' => $file->getClientOriginalName(),
-            'storage_path' => $storagePath,
-            'mime_type' => $file->getMimeType(),
-            'size_bytes' => $file->getSize(),
-        ]);
+        DB::transaction(function () use ($student, $request, $file, $storagePath, $activities): void {
+            $document = $student->documents()->create([
+                'uploaded_by' => $request->user()->id,
+                'category' => $request->validated('category'),
+                'original_name' => $file->getClientOriginalName(),
+                'storage_path' => $storagePath,
+                'mime_type' => $file->getMimeType(),
+                'size_bytes' => $file->getSize(),
+            ]);
+
+            $activities->record(
+                $student,
+                $request->user(),
+                'student.document_uploaded',
+                "Student document uploaded: {$document->original_name}",
+                details: [
+                    'document_id' => $document->id,
+                    'category' => $document->category,
+                ],
+            );
+        });
 
         return back()->with('status', 'Student document uploaded.');
     }

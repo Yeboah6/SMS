@@ -9,21 +9,26 @@ use App\Models\Guardian;
 use App\Models\SchoolClass;
 use App\Models\Section;
 use App\Models\Student;
+use App\Models\User;
+use App\Models\AttendanceRecord;
+use App\Models\Invoice;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class StudentProfileService
 {
+    public function __construct(private StudentActivityService $activities) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
-    public function create(array $data): Student
+    public function create(array $data, ?User $actor = null): Student
     {
-        return DB::transaction(function () use ($data): Student {
+        return DB::transaction(function () use ($data, $actor): Student {
             $guardians = $data['guardians'];
             $photo = $data['photo'] ?? null;
             unset($data['guardians']);
@@ -34,6 +39,13 @@ class StudentProfileService
                 $student->update(['photo_path' => $this->storePhoto($photo, $student->id)]);
             }
             $this->syncGuardians($student, $guardians);
+            $this->activities->record(
+                $student,
+                $actor,
+                'student.created',
+                'Student profile created.',
+                details: ['admission_number' => $student->admission_number],
+            );
 
             return $student;
         });
@@ -42,22 +54,52 @@ class StudentProfileService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function update(Student $student, array $data): Student
+    public function update(Student $student, array $data, ?User $actor = null): Student
     {
         $previousPhotoPath = $student->photo_path;
 
-        $student = DB::transaction(function () use ($student, $data): Student {
+        $student = DB::transaction(function () use ($student, $data, $actor): Student {
             $student = Student::query()->lockForUpdate()->findOrFail($student->getKey());
             $guardians = $data['guardians'];
             $photo = $data['photo'] ?? null;
             unset($data['guardians']);
             unset($data['photo']);
+            $profileBefore = $student->only([
+                'admission_number',
+                'first_name',
+                'middle_name',
+                'last_name',
+                'date_of_birth',
+                'gender',
+                'blood_group',
+                'religion',
+                'address',
+                'admission_date',
+                'status',
+            ]);
             if ($photo instanceof UploadedFile) {
                 $data['photo_path'] = $this->storePhoto($photo, $student->id);
             }
 
             $student->update($data);
             $this->syncGuardians($student, $guardians, updateExisting: true);
+            $profileAfter = $student->only(array_keys($profileBefore));
+            $changedFields = collect($profileBefore)
+                ->filter(fn (mixed $value, string $field): bool => $value != $profileAfter[$field])
+                ->keys()
+                ->values()
+                ->all();
+            if ($photo instanceof UploadedFile) {
+                $changedFields[] = 'photo';
+            }
+
+            $this->activities->record(
+                $student,
+                $actor,
+                'student.profile_updated',
+                'Student profile updated.',
+                details: ['changed_fields' => $changedFields],
+            );
 
             return $student->refresh();
         });
@@ -69,12 +111,35 @@ class StudentProfileService
         return $student;
     }
 
+    public function delete(Student $student, User $actor): void
+    {
+        DB::transaction(function () use ($student): void {
+            $student = Student::query()->lockForUpdate()->findOrFail($student->getKey());
+    
+            $hasHistory = $student->enrolments()->exists()
+                || $student->examMarks()->exists()
+                || $student->homeworkSubmissions()->exists()
+                || $student->promotions()->exists()
+                || $student->transfers()->exists()
+                || AttendanceRecord::query()->where('student_id', $student->id)->exists()
+                || Invoice::query()->where('student_id', $student->id)->exists();
+    
+            if ($hasHistory) {
+                throw ValidationException::withMessages([
+                    'student' => 'This student has enrolment, attendance, results or fee history and cannot be deleted. Set their status to inactive or left instead.',
+                ]);
+            }
+    
+            $student->delete();
+        });
+    }
+
     /**
      * @param  array{academic_year_id: int, class_id: int, section_id: int, enrolment_date: string}  $data
      */
-    public function enrol(Student $student, array $data): Enrolment
+    public function enrol(Student $student, array $data, ?User $actor = null): Enrolment
     {
-        return DB::transaction(function () use ($student, $data): Enrolment {
+        return DB::transaction(function () use ($student, $data, $actor): Enrolment {
             $student = Student::query()->lockForUpdate()->findOrFail($student->getKey());
             $academicYear = AcademicYear::query()->lockForUpdate()->findOrFail($data['academic_year_id']);
 
@@ -121,11 +186,27 @@ class StudentProfileService
                 ]);
             }
 
-            return Enrolment::query()->create([
+            $enrolment = Enrolment::query()->create([
                 ...$data,
                 'student_id' => $student->id,
                 'status' => 'active',
             ]);
+
+            $this->activities->record(
+                $student,
+                $actor,
+                'student.enrolled',
+                "Enrolled in {$schoolClass->name} · Section {$section->name}.",
+                $academicYear,
+                [
+                    'enrolment_id' => $enrolment->id,
+                    'class' => $schoolClass->name,
+                    'section' => $section->name,
+                    'enrolment_date' => $enrolmentDate,
+                ],
+            );
+
+            return $enrolment;
         });
     }
 

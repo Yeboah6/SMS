@@ -28,4 +28,14 @@ class SchoolClass extends Model
     {
         return $this->hasMany(Enrolment::class, 'class_id');
     }
+
+    public function feeStructures(): HasMany
+    {
+        return $this->hasMany(FeeStructure::class, 'class_id');
+    }
+
+    public function exams(): HasMany
+    {
+        return $this->hasMany(Exam::class, 'class_id');
+    }
 }
