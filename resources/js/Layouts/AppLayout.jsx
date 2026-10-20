@@ -76,9 +76,9 @@ const navigation = [
         label: 'Library',
         icon: BookOpen,
         children: [
-            { label: 'Books inventory', href: '/library/books', activePaths: ['/library/books', '/library/copies'], icon: BookOpen, permission: 'library.view', roles: ['Librarian', 'Super Admin'] },
-            { label: 'Loans', href: '/library/loans', icon: ClipboardList, permission: 'library.view', roles: ['Librarian', 'Super Admin'] },
-            { label: 'Library', href: '/library', matchNested: false, icon: BookOpen, permission: 'portal.library.view', roles: ['Student', 'Parent'] },
+            { label: 'Books inventory', href: '/supplies', activePaths: ['/supplies', '/supplies'], icon: BookOpen, permission: 'library.view', roles: ['Librarian', 'Super Admin'] },
+            // { label: 'Loans', href: '/library/loans', icon: ClipboardList, permission: 'library.view', roles: ['Librarian', 'Super Admin'] },
+            // { label: 'Library', href: '/library', matchNested: false, icon: BookOpen, permission: 'portal.library.view', roles: ['Student', 'Parent'] },
         ],
     },
     { label: 'Notices', href: '/notices', icon: Bell, permissions: ['notices.view', 'portal.notices.view'], roles: ['Principal', 'Teacher', 'Accountant', 'Librarian', 'Receptionist', 'Student', 'Parent', 'Super Admin'] },
