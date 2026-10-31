@@ -39,7 +39,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('class_supply_external_fulfilments');
+        Schema::dropIfExists('class_supply_ext_fulfilments');
         Schema::dropIfExists('class_supply_requirements');
     }
 };

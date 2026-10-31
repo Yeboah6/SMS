@@ -3,8 +3,9 @@ import AppLayout from '../../Layouts/AppLayout';
 import EmptyState from '../../Components/EmptyState';
 import StatusBanner from '../../Components/StatusBanner';
 import StudentsTable from '../../Components/StudentsTable';
+import TeacherAssignments from '../../Components/TeacherAssignments';
 
-export default function ClassesShow({ schoolClass, yearLocked, sections, subjects, availableSubjects, students, can }) {
+export default function ClassesShow({ schoolClass, yearLocked, sections, subjects, availableSubjects, students, teachers, can }) {
     const subjectForm = useForm({ subject_ids: subjects.map((subject) => subject.id) });
     const indexUrl = schoolClass.yearId ? `/classes?academic_year_id=${schoolClass.yearId}` : '/classes';
     const editable = !yearLocked;
@@ -105,6 +106,20 @@ export default function ClassesShow({ schoolClass, yearLocked, sections, subject
                     )}
                 </section>
             </div>
+
+            {can.assignTeachers && editable && sections.length > 0 && (
+                <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                    <h2 className="font-semibold text-slate-900">Teachers</h2>
+                    <div className="mt-4 space-y-6 divide-y divide-slate-100">
+                        {sections.map((section) => (
+                            <div key={section.id} className="pt-6 first:pt-0">
+                                <h3 className="mb-3 text-sm font-semibold text-slate-700">Section {section.name}</h3>
+                                <TeacherAssignments section={section} subjects={subjects} teachers={teachers} />
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
 
             {can.viewStudents && (
                 <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">

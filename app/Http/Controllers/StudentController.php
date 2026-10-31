@@ -73,6 +73,7 @@ class StudentController extends Controller
             'canCreate' => $request->user()->can('create', Student::class),
             'canPromote' => $request->user()->can('students.promote'),
             'canImport' => $request->user()->can('create', Student::class) && $request->user()->can('guardians.create'),
+            'canExport' => $request->user()->can('export', Student::class),
         ]);
     }
 
@@ -519,6 +520,64 @@ class StudentController extends Controller
         $service->delete($student, $request->user());
     
         return redirect()->route('students.index')->with('status', 'Student profile deleted.');
+    }
+
+    public function export(Request $request)
+    {
+        $this->authorize('export', Student::class);
+
+        $search = $request->string('search')->trim()->toString();
+
+        $studentName = fn (Student $student): string => implode(' ', array_filter([
+            $student->first_name,
+            $student->middle_name,
+            $student->last_name,
+        ]));
+
+        $students = Student::query()
+            ->with(['guardians', 'enrolment'])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('studentName', 'like', "%{$search}%")
+                      ->orWhere('admission_number', 'like', "%{$search}%")
+                      ->orWhereHas('guardians', fn ($g) => $g->where('name', 'like', "%{$search}%"));
+                });
+            })
+            ->orderBy('studentName')
+            ->cursor();
+
+        $filename = 'students-' . now()->format('Y-m-d-His') . '.csv';
+
+        return response()->streamDownload(function () use ($students) {
+            $handle = fopen('php://output', 'w');
+
+            // BOM so Excel reads the file as UTF-8 (matters for names with accents).
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                'Admission No.', 'Name', 'Guardian', 'Guardian Phone',
+                'Class', 'Section', 'Admission Date', 'Status',
+            ]);
+
+            foreach ($students as $student) {
+                $guardian = $student->guardians->first();
+
+                fputcsv($handle, [
+                    $student->admission_number,
+                    $this->studentName($student),
+                    $guardian?->name,
+                    $guardian?->phone,
+                    $student->class,
+                    $student->section,
+                    $student->admission_date,
+                    $student->status,
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     private function studentName(Student $student): string

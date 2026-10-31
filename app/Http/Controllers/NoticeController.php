@@ -105,6 +105,7 @@ class NoticeController extends Controller
         if ($request->boolean('publish') && $user->can('notices.publish')) {
             $published = $service->publish($notice, $user);
             $service->dispatchNotifications($published);
+            $this->notifyAuthorOfPublication($published, $user);
 
             return to_route('notices.show', $published)->with('status', 'Notice published and queued for delivery.');
         }
@@ -185,7 +186,8 @@ class NoticeController extends Controller
     {
         $publishedNotice = $service->publish($notice, $request->user());
         $service->dispatchNotifications($publishedNotice);
-
+        $this->notifyAuthorOfPublication($publishedNotice, $request->user());
+    
         return back()->with('status', 'Notice published and queued for delivery.');
     }
 
@@ -284,5 +286,24 @@ class NoticeController extends Controller
             'published' => (int) $stats->published,
             'expired' => (int) $stats->expired,
         ];
+    }
+
+    private function notifyAuthorOfPublication(Notice $notice, User $publisher): void
+    {
+        if ($notice->created_by === $publisher->id) {
+            return;
+        }
+    
+        $author = $notice->creator;
+        if (! $author) {
+            return;
+        }
+    
+        $channels = NoticePublishedNotification::channelsFromSettings();
+        if ($channels === []) {
+            return;
+        }
+    
+        $author->notify(new NoticePublishedNotification($notice, $channels, $publisher->name));
     }
 }

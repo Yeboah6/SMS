@@ -1,8 +1,10 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { GraduationCap, LoaderCircle } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap, LoaderCircle } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Login() {
     const { appName, status } = usePage().props;
+    const [showPassword, setShowPassword] = useState(false);
     const form = useForm({
         email: '',
         password: '',
@@ -55,16 +57,27 @@ export default function Login() {
                                 />
                             </Field>
                             <Field label="Password" error={form.errors.password}>
-                                <input
-                                    autoComplete="current-password"
-                                    type="password"
-                                    name="password"
-                                    required
-                                    value={form.data.password}
-                                    onChange={(event) => form.setData('password', event.target.value)}
-                                    className={inputClass(form.errors.password)}
-                                    placeholder="Enter your password"
-                                />
+                                <div className="relative">
+                                    <input
+                                        autoComplete="current-password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        name="password"
+                                        required
+                                        value={form.data.password}
+                                        onChange={(event) => form.setData('password', event.target.value)}
+                                        className={`${inputClass(form.errors.password)} pr-11`}
+                                        placeholder="Enter your password"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((visible) => !visible)}
+                                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                        aria-pressed={showPassword}
+                                        className="absolute inset-y-0 right-0 flex items-center rounded-r-xl px-3.5 text-slate-400 transition hover:text-slate-600 focus:outline-none focus-visible:text-teal-700"
+                                    >
+                                        {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                    </button>
+                                </div>
                             </Field>
                             <div className="flex items-center justify-between gap-3">
                                 <label className="flex items-center gap-2 text-sm text-slate-600">

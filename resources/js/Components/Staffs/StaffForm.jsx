@@ -2,7 +2,6 @@ import { Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import { Field, inputClass } from '../../Pages/Auth/Login';
 
-/** Shared by Staff/Create (no `member`) and Staff/Edit (pass `member`). */
 export default function StaffForm({ member = null, roles, departments, designations, canManageUsers }) {
     const isEditing = member !== null;
     const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +19,8 @@ export default function StaffForm({ member = null, roles, departments, designati
         qualifications: member?.qualifications || '',
     });
 
-    const passwordRequired = !isEditing || !member.hasAccount;
+    // Only meaningful when editing an existing account.
+    const canResetPassword = isEditing && member.hasAccount;
 
     function submit(event) {
         event.preventDefault();
@@ -57,19 +57,27 @@ export default function StaffForm({ member = null, roles, departments, designati
                     {roles.map((role) => <option key={role} value={role}>{role}</option>)}
                 </select>
             </Field>
-            <Field label={passwordRequired ? 'Password' : 'New password (optional)'} error={form.errors.password}>
-                <div className="flex gap-2">
-                    <input type={showPassword ? 'text' : 'password'} value={form.data.password} onChange={set('password')} className={inputClass(form.errors.password)} autoComplete="new-password" required={passwordRequired} />
-                    <button type="button" onClick={() => setShowPassword((value) => !value)} aria-pressed={showPassword} className="shrink-0 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">{showPassword ? 'Hide' : 'Show'}</button>
-                </div>
-            </Field>
-            <Field label="Confirm password" error={form.errors.password_confirmation}>
-                <input type={showPassword ? 'text' : 'password'} value={form.data.password_confirmation} onChange={set('password_confirmation')} className={inputClass(form.errors.password_confirmation)} autoComplete="new-password" required={passwordRequired || form.data.password !== ''} />
-            </Field>
+
+            {canResetPassword && (
+                <>
+                    <Field label="New password (optional)" error={form.errors.password}>
+                        <div className="flex gap-2">
+                            <input type={showPassword ? 'text' : 'password'} value={form.data.password} onChange={set('password')} className={inputClass(form.errors.password)} autoComplete="new-password" />
+                            <button type="button" onClick={() => setShowPassword((value) => !value)} aria-pressed={showPassword} className="shrink-0 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">{showPassword ? 'Hide' : 'Show'}</button>
+                        </div>
+                    </Field>
+                    <Field label="Confirm password" error={form.errors.password_confirmation}>
+                        <input type={showPassword ? 'text' : 'password'} value={form.data.password_confirmation} onChange={set('password_confirmation')} className={inputClass(form.errors.password_confirmation)} autoComplete="new-password" required={form.data.password !== ''} />
+                    </Field>
+                </>
+            )}
+
             <p className="text-xs text-slate-500 sm:col-span-2 xl:col-span-3">
-                {isEditing && member.hasAccount
+                {canResetPassword
                     ? 'Leave the password blank to keep the current one. The Teacher role allows class and subject assignments.'
-                    : 'A sign-in account is created with this email, role and password. The Teacher role allows class and subject assignments.'}
+                    : isEditing
+                        ? 'Saving will create a sign-in account with an auto-generated password. It is shown once after saving.'
+                        : 'A sign-in account is created with this email and role. A random password is generated and shown once after creation.'}
             </p>
 
             <Field label="Phone" error={form.errors.phone}>

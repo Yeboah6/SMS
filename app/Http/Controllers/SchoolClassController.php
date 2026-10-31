@@ -11,6 +11,7 @@ use App\Models\AcademicYear;
 use App\Models\ClassSubject;
 use App\Models\SchoolClass;
 use App\Models\Section;
+use App\Models\Staff;
 use App\Models\Subject;
 use App\Services\AcademicStructureService;
 use Illuminate\Http\RedirectResponse;
@@ -118,19 +119,26 @@ class SchoolClassController extends Controller
     {
         $user = $request->user();
         abort_unless($user->can('classes.view'), 403);
-
+    
         $staffId = $this->scopedStaffId($request);
-
+        $canManageTeachers = $user->can('teacher_assignments.manage');
+        $canViewStudents = $user->can('students.view');
+    
         $schoolClass->load([
             'sections' => fn ($query) => $query
                 ->orderBy('name')
-                ->with(['students', 'teacherClassAssignments', 'teacherSubjectAssignments']),
+                ->with([
+                    'students',
+                    'teacherClassAssignments.staff',
+                    'teacherSubjectAssignments.staff',
+                    'teacherSubjectAssignments.subject',
+                ]),
             'classSubjects.subject',
         ]);
-
+    
         $sections = $this->visibleSections($schoolClass, $staffId);
         abort_if($staffId !== null && $sections->isEmpty(), 403);
-
+    
         $teacherSubjectIds = $staffId === null
             ? null
             : $sections
@@ -138,10 +146,9 @@ class SchoolClassController extends Controller
                     ->where('staff_id', $staffId)
                     ->pluck('subject_id'))
                 ->unique();
-
-        $canViewStudents = $user->can('students.view');
+    
         $year = AcademicYear::query()->find($schoolClass->academic_year_id);
-
+    
         return Inertia::render('Classes/Show', [
             'schoolClass' => [
                 'id' => $schoolClass->id,
@@ -156,6 +163,20 @@ class SchoolClassController extends Controller
                 'name' => $section->name,
                 'capacity' => $section->capacity,
                 'studentsCount' => $section->students->count(),
+                'teacherAssignments' => $canManageTeachers
+                    ? $section->teacherClassAssignments->map(fn ($assignment): array => [
+                        'staffId' => $assignment->staff_id,
+                        'name' => $assignment->staff->name,
+                    ])->values()
+                    : [],
+                'subjectAssignments' => $canManageTeachers
+                    ? $section->teacherSubjectAssignments->map(fn ($assignment): array => [
+                        'staffId' => $assignment->staff_id,
+                        'staffName' => $assignment->staff->name,
+                        'subjectId' => $assignment->subject_id,
+                        'subjectName' => $assignment->subject->name,
+                    ])->values()
+                    : [],
             ])->values(),
             'subjects' => $schoolClass->classSubjects
                 ->when($teacherSubjectIds !== null, fn ($rows) => $rows->whereIn('subject_id', $teacherSubjectIds))
@@ -178,6 +199,13 @@ class SchoolClassController extends Controller
                     ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
                     ->values()
                 : [],
+            'teachers' => $canManageTeachers
+                ? Staff::query()
+                    ->where('is_teacher', true)
+                    ->where('status', 'active')
+                    ->orderBy('name')
+                    ->get(['id', 'staff_number', 'name'])
+                : [],
             'can' => [
                 'update' => $user->can('classes.update'),
                 'delete' => $user->can('classes.delete'),
@@ -186,6 +214,7 @@ class SchoolClassController extends Controller
                 'deleteSection' => $user->can('sections.delete'),
                 'assignSubjects' => $user->can('class_subjects.assign'),
                 'viewStudents' => $canViewStudents,
+                'assignTeachers' => $canManageTeachers,
             ],
         ]);
     }

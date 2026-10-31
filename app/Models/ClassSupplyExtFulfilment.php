@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['requirement_id', 'student_id', 'marked_by', 'notes'])]
-class ClassSupplyExternalFulfilment extends Model
+class ClassSupplyExtFulfilment extends Model
 {
     public function requirement(): BelongsTo
     {

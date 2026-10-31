@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\AcademicYear;
-use App\Models\ClassSupplyExternalFulfilment;
+use App\Models\ClassSupplyExtFulfilment;
 use App\Models\ClassSupplyRequirement;
 use App\Models\Enrolment;
 use App\Models\SchoolClass;
@@ -52,11 +52,11 @@ class SupplyRequirementService
         $requirement->delete(); // external markings go with it (cascade); sales are untouched
     }
 
-    public function markExternal(ClassSupplyRequirement $requirement, Student $student, ?string $notes, User $actor): ClassSupplyExternalFulfilment
+    public function markExternal(ClassSupplyRequirement $requirement, Student $student, ?string $notes, User $actor): ClassSupplyExtFulfilment
     {
         $this->assertExternalAllowed($actor);
 
-        return ClassSupplyExternalFulfilment::query()->updateOrCreate(
+        return ClassSupplyExtFulfilment::query()->updateOrCreate(
             ['requirement_id' => $requirement->id, 'student_id' => $student->id],
             ['marked_by' => $actor->id, 'notes' => $notes],
         );
@@ -66,7 +66,7 @@ class SupplyRequirementService
     {
         $this->assertExternalAllowed($actor);
 
-        ClassSupplyExternalFulfilment::query()->where('requirement_id', $requirement->id)->where('student_id', $student->id)->delete();
+        ClassSupplyExtFulfilment::query()->where('requirement_id', $requirement->id)->where('student_id', $student->id)->delete();
     }
 
     /**
@@ -104,7 +104,7 @@ class SupplyRequirementService
             $termWide[$term->id] = $this->purchased($studentIds, $year->id, $term->start_date->copy()->startOfDay(), $term->end_date->copy()->endOfDay());
         }
 
-        $external = ClassSupplyExternalFulfilment::query()
+        $external = ClassSupplyExtFulfilment::query()
             ->whereIn('requirement_id', $requirements->pluck('id'))
             ->whereIn('student_id', $studentIds)
             ->get()

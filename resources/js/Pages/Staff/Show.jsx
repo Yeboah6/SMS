@@ -1,8 +1,10 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage  } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
 import PageAlerts from '../../Components/Exams/PageAlerts';
 
 export default function StaffShow({ member, can }) {
+    const { generated_credentials } = usePage().props;
+
     function deleteStaff() {
         if (window.confirm(`Delete ${member.name}? This also removes their sign-in account. Staff with teaching assignments cannot be deleted.`)) {
             router.delete(`/staff/${member.id}`);
@@ -12,6 +14,9 @@ export default function StaffShow({ member, can }) {
     return (
         <AppLayout title={member.name} description={`${member.staffNumber}${member.designation ? ` · ${member.designation}` : ''}`}>
             <Head title={member.name} />
+            {generated_credentials && (
+                <GeneratedCredentialsCard credentials={generated_credentials} />
+            )}
             <PageAlerts />
 
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -65,5 +70,45 @@ function Detail({ label, value }) {
             <dt className="text-xs font-medium text-slate-500">{label}</dt>
             <dd className="mt-1 text-slate-900">{value || '—'}</dd>
         </div>
+    );
+}
+
+function GeneratedCredentialsCard({ credentials }) {
+    const [copied, setCopied] = useState(false);
+
+    function copy() {
+        navigator.clipboard.writeText(`Email: ${credentials.email}\nPassword: ${credentials.password}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
+
+    return (
+        <section
+            role="status"
+            aria-live="polite"
+            className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5"
+        >
+            <h2 className="font-semibold text-amber-900">Sign-in credentials — shown once</h2>
+            <p className="mt-1 text-sm text-amber-800">
+                Share these with {credentials.email} now. The password will not be shown again.
+            </p>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                    <dt className="text-xs font-medium text-amber-800">Email</dt>
+                    <dd className="mt-1 font-mono text-sm text-amber-950">{credentials.email}</dd>
+                </div>
+                <div>
+                    <dt className="text-xs font-medium text-amber-800">Password</dt>
+                    <dd className="mt-1 font-mono text-sm text-amber-950">{credentials.password}</dd>
+                </div>
+            </dl>
+            <button
+                type="button"
+                onClick={copy}
+                className="mt-4 rounded-xl bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900"
+            >
+                {copied ? 'Copied' : 'Copy credentials'}
+            </button>
+        </section>
     );
 }

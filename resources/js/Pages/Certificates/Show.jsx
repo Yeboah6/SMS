@@ -7,20 +7,53 @@ import { Field, inputClass } from '../Auth/Login';
 import { statusClass, typeLabel } from '../../lib/certificates';
 
 export default function CertificatesShow({ mode, certificate, request, can }) {
+    // Shared print styles. Hides everything on the page except .certificate-print-area.
+    const printStyles = (
+        <style>{`
+            @media print {
+                @page { margin: 0; }
+                body * {
+                    visibility: hidden;
+                }
+                .certificate-print-area, .certificate-print-area * {
+                    visibility: visible;
+                }
+                .certificate-print-area {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    margin: 0;
+                    padding: 0;
+                }
+            }
+        `}</style>
+    );
+
     if (mode === 'portal') {
         return (
-            <AppLayout title="Issued certificate" description={`${certificate.number} · ${certificate.studentName}`}>
-                <Head title={`${certificate.number} · Certificate`} />
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
-                    <Link href="/certificates" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Back to certificates</Link>
-                    <PrintButton />
-                </div>
-                <CertificateDocument certificate={certificate} />
-            </AppLayout>
+            <>
+                {printStyles}
+                <AppLayout title="Issued certificate" description={`${certificate.number} · ${certificate.studentName}`}>
+                    <Head title={`${certificate.number} · Certificate`} />
+                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
+                        <Link href="/certificates" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Back to certificates</Link>
+                        <PrintButton />
+                    </div>
+                    <div className="certificate-print-area">
+                        <CertificateDocument certificate={certificate} />
+                    </div>
+                </AppLayout>
+            </>
         );
     }
 
-    return <ManagerView certificate={certificate} request={request} can={can} />;
+    return (
+        <>
+            {printStyles}
+            <ManagerView certificate={certificate} request={request} can={can} />
+        </>
+    );
 }
 
 function ManagerView({ certificate, request, can }) {
@@ -118,7 +151,11 @@ function ManagerView({ certificate, request, can }) {
                 {certificate && <h2 className="mb-3 font-semibold text-slate-900">Certificate preview</h2>}
             </div>
 
-            {certificate && <CertificateDocument certificate={certificate} />}
+            {certificate && (
+                <div className="certificate-print-area">
+                    <CertificateDocument certificate={certificate} />
+                </div>
+            )}
         </AppLayout>
     );
 }

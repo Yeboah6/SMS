@@ -84,7 +84,8 @@ class TimetableController extends Controller
             }
         }
 
-        $slots = TimetableSlot::query()
+        // Shared scope: only the slots this viewer is allowed to see.
+        $scopedSlots = TimetableSlot::query()
             ->where('academic_year_id', $academicYear?->id ?? 0)
             ->when($isTeacher, fn ($query) => $query->whereHas(
                 'teachingAssignment',
@@ -93,6 +94,29 @@ class TimetableController extends Controller
             ->when($sectionIds !== null, fn ($query) => $query->whereHas(
                 'teachingAssignment',
                 fn ($assignments) => $assignments->whereIn('section_id', $sectionIds),
+            ));
+
+        // Classes present in the current scope, for the filter dropdown.
+        $classes = (clone $scopedSlots)
+            ->with('teachingAssignment.section.schoolClass:id,name')
+            ->get()
+            ->pluck('teachingAssignment.section.schoolClass')
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->map(fn ($schoolClass): array => ['id' => $schoolClass->id, 'name' => $schoolClass->name])
+            ->values();
+
+        $classId = $request->integer('class_id') ?: null;
+        if ($classId !== null && ! $classes->contains('id', $classId)) {
+            // Requested class is out of scope or empty — silently drop the filter.
+            $classId = null;
+        }
+
+        $slots = (clone $scopedSlots)
+            ->when($classId !== null, fn ($query) => $query->whereHas(
+                'teachingAssignment.section',
+                fn ($sections) => $sections->where('school_class_id', $classId),
             ))
             ->with($this->slotRelations())
             ->orderBy('day_of_week')
@@ -112,6 +136,8 @@ class TimetableController extends Controller
             'selectedAcademicYearId' => $academicYear?->id,
             'selectedStudentId' => $selectedStudentId,
             'students' => $portalStudents,
+            'classes' => $classes,
+            'selectedClassId' => $classId,
             'slots' => $slots,
             'canManage' => $this->canManage($isManager, $academicYear),
             'days' => self::DAYS,
@@ -123,16 +149,18 @@ class TimetableController extends Controller
     public function create(Request $request): Response
     {
         abort_unless($request->user()->can('timetable.manage'), 403);
-
+    
         $year = $request->filled('academic_year_id')
             ? AcademicYear::query()->findOrFail($request->integer('academic_year_id'))
             : AcademicYear::active()->first();
         abort_unless($year, 404);
         abort_if($year->status === AcademicYearStatus::Locked, 403);
-
+    
+        $classId = $request->integer('class_id') ?: null;
+    
         return Inertia::render('Timetable/Create', [
             'academicYear' => ['id' => $year->id, 'name' => $year->name],
-            'assignments' => $this->assignmentOptions($year),
+            'assignments' => $this->assignmentOptions($year, $classId),
             'days' => self::DAYS,
         ]);
     }
@@ -291,11 +319,15 @@ class TimetableController extends Controller
             ->values();
     }
 
-    private function assignmentOptions(AcademicYear $year): Collection
+    private function assignmentOptions(AcademicYear $year, ?int $classId = null): Collection
     {
         return TeacherSubjectAssignment::query()
             ->with(['section.schoolClass:id,name', 'subject:id,name', 'staff:id,name,status,is_teacher'])
             ->where('academic_year_id', $year->id)
+            ->when($classId !== null, fn ($query) => $query->whereHas(
+                'section',
+                fn ($sections) => $sections->where('school_class_id', $classId),
+            ))
             ->whereHas('staff', fn ($query) => $query->where('status', 'active')->where('is_teacher', true))
             ->orderBy('section_id')
             ->orderBy('subject_id')
@@ -329,7 +361,10 @@ class TimetableController extends Controller
             'startsAt' => substr($slot->starts_at, 0, 5),
             'endsAt' => substr($slot->ends_at, 0, 5),
             'room' => $slot->room,
+            'classId' => $assignment->section->schoolClass->id,
+            'className' => $assignment->section->schoolClass->name,
             'sectionId' => $assignment->section_id,
+            'sectionName' => $assignment->section->name,
             'section' => $assignment->section->schoolClass->name.' · '.$assignment->section->name,
             'subject' => $assignment->subject->name,
             'teacher' => $assignment->staff->name,

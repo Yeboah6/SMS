@@ -62,6 +62,57 @@ export default function StudentShow({ student, canEdit, canDelete, canEnrol, can
         });
     }
 
+    function EnrolmentFields({ form, academicYears, availableClasses, selectedClass }) {
+        return (
+            <>
+                <Field label="Academic year" error={form.errors.academic_year_id}>
+                    <select
+                        value={form.data.academic_year_id}
+                        onChange={(event) => form.setData({ ...form.data, academic_year_id: event.target.value, class_id: '', section_id: '' })}
+                        className={inputClass(form.errors.academic_year_id)}
+                        required
+                    >
+                        <option value="">Select year</option>
+                        {academicYears.map((year) => <option key={year.id} value={year.id}>{year.name} · {year.status}</option>)}
+                    </select>
+                </Field>
+                <Field label="Class" error={form.errors.class_id}>
+                    <select
+                        value={form.data.class_id}
+                        onChange={(event) => form.setData({ ...form.data, class_id: event.target.value, section_id: '' })}
+                        className={inputClass(form.errors.class_id)}
+                        disabled={!form.data.academic_year_id}
+                        required
+                    >
+                        <option value="">Select class</option>
+                        {availableClasses.map((schoolClass) => <option key={schoolClass.id} value={schoolClass.id}>{schoolClass.name}</option>)}
+                    </select>
+                </Field>
+                <Field label="Section" error={form.errors.section_id}>
+                    <select
+                        value={form.data.section_id}
+                        onChange={(event) => form.setData('section_id', event.target.value)}
+                        className={inputClass(form.errors.section_id)}
+                        disabled={!selectedClass}
+                        required
+                    >
+                        <option value="">Select section</option>
+                        {selectedClass?.sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+                    </select>
+                </Field>
+                <Field label="Enrolment date" error={form.errors.enrolment_date}>
+                    <input
+                        type="date"
+                        value={form.data.enrolment_date}
+                        onChange={(event) => form.setData('enrolment_date', event.target.value)}
+                        className={inputClass(form.errors.enrolment_date)}
+                        required
+                    />
+                </Field>
+            </>
+        );
+    }
+
     const baseUrl = `/students`;
 
     return (
@@ -92,7 +143,7 @@ export default function StudentShow({ student, canEdit, canDelete, canEnrol, can
                         <p className="mt-2 text-sm capitalize text-slate-500">{student.status} · admitted {student.admissionDate}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <a href={`/students/${student.id}/id-card`} className="rounded-xl border border-teal-200 px-4 py-2.5 text-center text-sm font-semibold text-teal-800 hover:bg-teal-50">Download ID card</a>
+                        <Link href={`/students/${student.id}/id-card`} className="rounded-xl border border-teal-200 px-4 py-2.5 text-center text-sm font-semibold text-teal-800 hover:bg-teal-50">View ID card</Link>
                         {canEdit && <Link href={`/students/${student.id}/edit`} className="rounded-xl border border-slate-200 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">Edit profile</Link>}
                         {canDelete && <button type="button" onClick={deleteStudent} className="rounded-xl border border-rose-200 px-4 py-2.5 text-center text-sm font-semibold text-rose-700 hover:bg-rose-50">Delete student</button>}
                     </div>
@@ -138,7 +189,30 @@ export default function StudentShow({ student, canEdit, canDelete, canEnrol, can
                         <span className="text-xs text-slate-500">{student.enrolments.length} records</span>
                     </div>
                     {student.enrolments.length === 0 ? (
-                        <p className="mt-4 text-sm text-slate-500">No academic-year enrolments are recorded.</p>
+                        <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4">
+                            <p className="text-sm font-medium text-slate-800">This student has not been enrolled yet.</p>
+                            <p className="mt-1 text-sm text-slate-500">
+                                {canEnrol
+                                    ? 'Add an academic-year enrolment to begin tracking attendance, results, and fees.'
+                                    : 'An administrator with enrolment permission can add the first academic-year enrolment.'}
+                            </p>
+                            {canEnrol && (
+                                <form onSubmit={enrol} className="mt-4 grid gap-3">
+                                    <EnrolmentFields
+                                        form={enrolmentForm}
+                                        academicYears={academicYears}
+                                        availableClasses={availableClasses}
+                                        selectedClass={selectedClass}
+                                    />
+                                    <button
+                                        disabled={enrolmentForm.processing}
+                                        className="justify-self-start rounded-xl bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-900 disabled:opacity-60"
+                                    >
+                                        {enrolmentForm.processing ? 'Saving…' : 'Save enrolment'}
+                                    </button>
+                                </form>
+                            )}
+                        </div>
                     ) : (
                         <ol className="mt-4 space-y-3">
                             {student.enrolments.map((enrolment) => (
@@ -275,32 +349,17 @@ export default function StudentShow({ student, canEdit, canDelete, canEnrol, can
                 )}
             </section>
 
-            {canEnrol && (
+            {canEnrol && student.enrolments.length > 0 && (
                 <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
                     <h2 className="font-semibold text-slate-900">Add academic enrolment</h2>
                     <p className="mt-1 text-sm text-slate-500">Each year is stored as a separate history record; existing enrolments are never overwritten.</p>
                     <form onSubmit={enrol} className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <Field label="Academic year" error={enrolmentForm.errors.academic_year_id}>
-                            <select value={enrolmentForm.data.academic_year_id} onChange={(event) => enrolmentForm.setData({ ...enrolmentForm.data, academic_year_id: event.target.value, class_id: '', section_id: '' })} className={inputClass(enrolmentForm.errors.academic_year_id)} required>
-                                <option value="">Select year</option>
-                                {academicYears.map((year) => <option key={year.id} value={year.id}>{year.name} · {year.status}</option>)}
-                            </select>
-                        </Field>
-                        <Field label="Class" error={enrolmentForm.errors.class_id}>
-                            <select value={enrolmentForm.data.class_id} onChange={(event) => enrolmentForm.setData({ ...enrolmentForm.data, class_id: event.target.value, section_id: '' })} className={inputClass(enrolmentForm.errors.class_id)} disabled={!enrolmentForm.data.academic_year_id} required>
-                                <option value="">Select class</option>
-                                {availableClasses.map((schoolClass) => <option key={schoolClass.id} value={schoolClass.id}>{schoolClass.name}</option>)}
-                            </select>
-                        </Field>
-                        <Field label="Section" error={enrolmentForm.errors.section_id}>
-                            <select value={enrolmentForm.data.section_id} onChange={(event) => enrolmentForm.setData('section_id', event.target.value)} className={inputClass(enrolmentForm.errors.section_id)} disabled={!selectedClass} required>
-                                <option value="">Select section</option>
-                                {selectedClass?.sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
-                            </select>
-                        </Field>
-                        <Field label="Enrolment date" error={enrolmentForm.errors.enrolment_date}>
-                            <input type="date" value={enrolmentForm.data.enrolment_date} onChange={(event) => enrolmentForm.setData('enrolment_date', event.target.value)} className={inputClass(enrolmentForm.errors.enrolment_date)} required />
-                        </Field>
+                        <EnrolmentFields
+                            form={enrolmentForm}
+                            academicYears={academicYears}
+                            availableClasses={availableClasses}
+                            selectedClass={selectedClass}
+                        />
                         <div className="flex items-end xl:col-span-4">
                             <button disabled={enrolmentForm.processing} className="rounded-xl bg-teal-800 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-900 disabled:opacity-60">Save enrolment</button>
                         </div>

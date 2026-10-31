@@ -18,6 +18,11 @@ class StudentPolicy
         return $user->can('students.create') && $user->can('guardians.create');
     }
 
+    public function export(User $user): bool
+    {
+        return $user->hasPermissionTo('students.export');
+    }
+
     public function update(User $user, Student $student): bool
     {
         return $user->can('students.update')

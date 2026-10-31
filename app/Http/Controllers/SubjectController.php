@@ -61,7 +61,7 @@ class SubjectController extends Controller
         $subject = Subject::query()->create($request->validated());
 
         return redirect()
-            ->route('subjects.show', $subject)
+            ->route('subjects.index', $subject)
             ->with('status', 'Subject created.');
     }
 

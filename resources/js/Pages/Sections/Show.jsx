@@ -2,9 +2,8 @@ import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
 import StatusBanner from '../../Components/StatusBanner';
 import StudentsTable from '../../Components/StudentsTable';
-import TeacherAssignments from '../../Components/TeacherAssignments';
 
-export default function SectionsShow({ section, schoolClass, yearLocked, subjects, teachers, students, can }) {
+export default function SectionsShow({ section, schoolClass, yearLocked, students, teachers, can }) {
     const editable = !yearLocked;
 
     function deleteSection() {
@@ -29,13 +28,6 @@ export default function SectionsShow({ section, schoolClass, yearLocked, subject
                     {can.deleteSection && editable && <button type="button" onClick={deleteSection} className="text-rose-700 hover:text-rose-900">Delete section</button>}
                 </div>
             </div>
-
-            {can.assignTeachers && editable && (
-                <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                    <h2 className="mb-4 font-semibold text-slate-900">Teachers</h2>
-                    <TeacherAssignments section={section} subjects={subjects} teachers={teachers} />
-                </section>
-            )}
 
             {can.viewStudents && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">

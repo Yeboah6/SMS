@@ -6,7 +6,6 @@ export default function NoticesCreate({ canPublish }) {
     const form = useForm({ title: '', body: '', audience: 'all', expires_at: '' });
 
     function save(publish) {
-        // transform() does not return the form in the React adapter, so it is called on its own.
         form.transform((data) => ({ ...data, publish }));
         form.post('/notices', { onFinish: () => form.transform((data) => data) });
     }

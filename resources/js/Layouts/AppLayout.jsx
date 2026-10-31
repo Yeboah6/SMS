@@ -50,8 +50,19 @@ const navigation = [
         icon: ClipboardList,
         children: [
             { label: 'Fees & invoices', href: '/fees', activePaths: ['/fees', '/fee-heads', '/fee-structures', '/invoices'], icon: ClipboardList, permissions: ['fees.view', 'portal.fees.view'], roles: ['Accountant', 'Student', 'Parent', 'Super Admin'] },
-            { label: 'Fee collection report', href: '/reports/financial', activePaths: ['/reports/financial', '/reports/financial/export'], matchNested: false, icon: ClipboardList, permission: 'reports.financial.view' },
-            { label: 'Outstanding fees report', href: '/reports/financial/outstanding', activePaths: ['/reports/financial/outstanding', '/reports/financial/outstanding/export'], matchNested: false, icon: ClipboardList, permission: 'reports.financial.view' },
+            
+        ],
+    },
+    {
+        label: 'Books & supplies',
+        icon: BookOpen,
+        children: [
+            { label: 'Dashboard', href: '/supplies', matchNested: false, icon: LayoutDashboard, permission: 'supplies.dashboard.view' },
+            { label: 'Inventory', href: '/supplies/items', activePaths: ['/supplies/items', '/supplies/categories', '/supplies/stock-movements'], icon: BookOpen, permission: 'supplies.items.view' },
+            { label: 'Sales', href: '/supplies/sales', activePaths: ['/supplies/sales', '/supplies/students'], icon: ClipboardList, permission: 'supplies.sales.view' },
+            { label: 'Purchases & suppliers', href: '/supplies/purchases', activePaths: ['/supplies/purchases', '/supplies/suppliers'], icon: ClipboardList, permission: 'supplies.purchases.view' },
+            { label: 'Class requirements', href: '/supplies/requirements', icon: GraduationCap, permission: 'supplies.requirements.view' },
+            
         ],
     },
     {
@@ -60,6 +71,9 @@ const navigation = [
         children: [
             { label: 'Attendance report', href: '/reports/attendance', icon: ClipboardList, permission: 'reports.view' },
             { label: 'Academic results report', href: '/reports/academic', icon: GraduationCap, permission: 'results.view' },
+            { label: 'Fee collection report', href: '/reports/financial', activePaths: ['/reports/financial', '/reports/financial/export'], matchNested: false, icon: ClipboardList, permission: 'reports.financial.view' },
+            { label: 'Outstanding fees report', href: '/reports/financial/outstanding', activePaths: ['/reports/financial/outstanding', '/reports/financial/outstanding/export'], matchNested: false, icon: ClipboardList, permission: 'reports.financial.view' },
+            { label: 'Supplies reports', href: '/supplies/reports', icon: ClipboardList, permission: 'supplies.reports.view' },
         ],
     },
     {
@@ -70,15 +84,6 @@ const navigation = [
             { label: 'Users', href: '/users', icon: GraduationCap, permission: 'users.view' },
             { label: 'Roles', href: '/roles', icon: BookOpen, permission: 'roles.view' },
             { label: 'Permissions', href: '/permissions', icon: ShieldCheck, permission: 'permissions.view' },
-        ],
-    },
-    {
-        label: 'Library',
-        icon: BookOpen,
-        children: [
-            { label: 'Books inventory', href: '/supplies', activePaths: ['/supplies', '/supplies'], icon: BookOpen, permission: 'library.view', roles: ['Librarian', 'Super Admin'] },
-            // { label: 'Loans', href: '/library/loans', icon: ClipboardList, permission: 'library.view', roles: ['Librarian', 'Super Admin'] },
-            // { label: 'Library', href: '/library', matchNested: false, icon: BookOpen, permission: 'portal.library.view', roles: ['Student', 'Parent'] },
         ],
     },
     { label: 'Notices', href: '/notices', icon: Bell, permissions: ['notices.view', 'portal.notices.view'], roles: ['Principal', 'Teacher', 'Accountant', 'Librarian', 'Receptionist', 'Student', 'Parent', 'Super Admin'] },
@@ -253,7 +258,7 @@ export default function AppLayout({ children, title, description }) {
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                             <BookOpen size={16} className="text-teal-700" />
-                            School management
+                            KEKStudios
                         </div>
                         <p className="mt-2 text-xs leading-5 text-slate-500">
                             Everyday with God is Everyday in Victory.
@@ -318,6 +323,14 @@ export default function AppLayout({ children, title, description }) {
                             </button>
                             {userMenuOpen && (
                                 <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg shadow-slate-900/10">
+                                    <Link
+                                      href="/profile"
+                                      onClick={() => setUserMenuOpen(false)}
+                                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                    >
+                                      <UsersRound size={16} />
+                                      My profile
+                                    </Link>
                                     <button
                                         type="button"
                                         onClick={logout}

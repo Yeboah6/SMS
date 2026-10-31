@@ -52,4 +52,18 @@ class GuardianAccountController extends Controller
 
         return back()->with('status', 'Parent account created and password setup email sent.');
     }
+
+    public function resend(
+        InviteGuardianAccountRequest $request,
+        Student $student,
+        Guardian $guardian,
+        GuardianAccountService $service,
+    ): RedirectResponse {
+        $this->authorize('view', $student);
+        abort_unless($student->guardians()->whereKey($guardian->id)->exists(), 404);
+    
+        $service->resendInvitation($guardian);
+    
+        return back()->with('status', 'Invitation email resent.');
+    }
 }

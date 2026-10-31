@@ -3,7 +3,7 @@ import { useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 import PageAlerts from '../../Components/Exams/PageAlerts';
 
-export default function StudentsIndex({ students, search, canCreate, canPromote, canImport }) {
+export default function StudentsIndex({ students, search, canCreate, canPromote, canImport, canExport }) {
     const [query, setQuery] = useState(search || '');
 
     function searchStudents(event) {
@@ -19,6 +19,11 @@ export default function StudentsIndex({ students, search, canCreate, canPromote,
         if (window.confirm(`Delete ${student.name}? Students with enrolment, attendance, results or fee history cannot be deleted; mark them inactive instead.`)) {
             router.delete(`/students/${student.id}`, { preserveScroll: true });
         }
+    }
+
+    function exportUrl() {
+        if (!search) return '/students/export';
+        return `/students/export?search=${encodeURIComponent(search)}`;
     }
 
     return (
@@ -38,6 +43,7 @@ export default function StudentsIndex({ students, search, canCreate, canPromote,
                             <button className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Search</button>
                         </form>
                         {canImport && <Link href="/students/import" className="rounded-xl border border-slate-200 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">Import CSV</Link>}
+                        {canExport && <a href={exportUrl()} className="rounded-xl border border-slate-200 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">Export CSV</a>}
                         {canCreate && <Link href="/students/create" className="rounded-xl bg-teal-800 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-teal-900">Add student</Link>}
                     </div>
                 </div>

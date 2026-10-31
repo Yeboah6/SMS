@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Actions\Fortify\ResetUserPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -19,6 +20,8 @@ class FortifyServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
+
         RateLimiter::for('login', function (Request $request): Limit {
             $key = Str::transliterate(
                 Str::lower($request->input(Fortify::username()).'|'.$request->ip()),

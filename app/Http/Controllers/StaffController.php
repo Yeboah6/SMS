@@ -70,9 +70,14 @@ class StaffController extends Controller
 
     public function store(StoreStaffRequest $request, StaffDirectoryService $service): RedirectResponse
     {
-        $staff = $service->create($request->validated());
+        [$staff, $password] = $service->create($request->validated());
 
-        return to_route('staff.show', $staff)->with('status', "Staff profile {$staff->staff_number} created.");
+        return to_route('staff.show', $staff)
+            ->with('status', "Staff profile {$staff->staff_number} created.")
+            ->with('generated_credentials', [
+                'email' => $staff->email,
+                'password' => $password,
+            ]);
     }
 
     public function show(Request $request, Staff $staff): Response
@@ -105,9 +110,18 @@ class StaffController extends Controller
 
     public function update(UpdateStaffRequest $request, Staff $staff, StaffDirectoryService $service): RedirectResponse
     {
-        $service->update($staff, $request->validated());
-
-        return to_route('staff.show', $staff)->with('status', 'Staff profile updated.');
+        [$staff, $generatedPassword] = $service->update($staff, $request->validated());
+    
+        $redirect = to_route('staff.show', $staff)->with('status', 'Staff profile updated.');
+    
+        if ($generatedPassword) {
+            $redirect->with('generated_credentials', [
+                'email' => $staff->email,
+                'password' => $generatedPassword,
+            ]);
+        }
+    
+        return $redirect;
     }
 
     public function destroy(Request $request, Staff $staff, StaffDirectoryService $service): RedirectResponse

@@ -55,6 +55,7 @@ class RolePermissionSeeder extends Seeder
         'certificates.issue',
         'reports.financial.view',
         'reports.financial.export',
+        'homework.delete',
     ];
 
     private const ROLE_PERMISSIONS = [
@@ -80,7 +81,7 @@ class RolePermissionSeeder extends Seeder
             'student_history.view', 'classes.view', 'sections.view', 'subjects.view',
             'attendance.view', 'attendance.mark', 'attendance.update', 'leave.apply',
             'timetable.view', 'exams.view', 'marks.view', 'marks.enter', 'marks.update',
-            'homework.view', 'homework.create', 'homework.update', 'homework.grade',
+            'homework.view', 'homework.create', 'homework.update', 'homework.grade', 'homework.delete',
             'notices.view', 'reports.view',
         ],
         'Student' => [

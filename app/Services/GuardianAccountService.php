@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Guardian;
 use App\Models\User;
+use App\Notifications\GuardianPortalInvitation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -99,6 +100,43 @@ class GuardianAccountService
             ]);
         }
 
+        $this->sendInvitation($user);
+
         return $user;
+    }
+
+    public function resendInvitation(Guardian $guardian): void
+    {
+        $user = $guardian->user;
+
+        if ($user === null) {
+            throw ValidationException::withMessages([
+                'email' => 'This guardian has no portal account yet. Send an invitation first.',
+            ]);
+        }
+
+        if ($user->email_verified_at !== null) {
+            throw ValidationException::withMessages([
+                'email' => 'This parent has already activated their account.',
+            ]);
+        }
+
+        $this->sendInvitation($user);
+    }
+
+    private function sendInvitation(User $user): void
+    {
+        // createToken bypasses the broker's resend throttle and replaces any older token.
+        $token = Password::broker()->createToken($user);
+
+        try {
+            $user->notify(new GuardianPortalInvitation($token));
+        } catch (\Throwable $e) {
+            report($e);
+
+            throw ValidationException::withMessages([
+                'email' => 'The portal account was created, but the invitation email could not be sent. Use "Resend invitation" to try again.',
+            ]);
+        }
     }
 }

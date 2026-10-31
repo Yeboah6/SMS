@@ -3,7 +3,7 @@ import AppLayout from '../../../Layouts/AppLayout';
 import PageAlerts from '../../../Components/Exams/PageAlerts';
 import SuppliesNav from '../../../Components/Supplies/SuppliesNav';
 import Pager from '../../../Components/Supplies/Pager';
-import { fmtDate, useMoney } from '../../../../lib/supplies';
+import { fmtDate, useMoney } from '../../../lib/supplies';
 
 export default function SuppliersShow({ supplier, purchases, can }) {
     const money = useMoney();

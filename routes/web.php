@@ -58,6 +58,11 @@ use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StudentSupplyController;
 use App\Http\Controllers\SupplierController;
 
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\DesignationController;
+
+use App\Http\Controllers\ProfileController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login');
@@ -128,11 +133,18 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/leave-requests', [LeaveRequestController::class, 'store'])->name('leave-requests.store');
     Route::post('/leave-requests/{leaveRequest}/review', [LeaveRequestController::class, 'review'])->name('leave-requests.review');
     Route::post('/leave-requests/{leaveRequest}/cancel', [LeaveRequestController::class, 'cancel'])->name('leave-requests.cancel');
-    Route::get('/homework', [HomeworkController::class, 'index'])->name('homework.index');
-    Route::post('/homework', [HomeworkController::class, 'store'])->name('homework.store');
-    Route::put('/homework/{homeworkAssignment}', [HomeworkController::class, 'update'])->name('homework.update');
+    Route::resource('homework', HomeworkController::class)->parameters(['homework' => 'homeworkAssignment']);
+
     Route::post('/homework/{homeworkAssignment}/submissions', [HomeworkController::class, 'submit'])->name('homework.submissions.store');
     Route::patch('/homework/{homeworkAssignment}/submissions/{homeworkSubmission}/grade', [HomeworkController::class, 'grade'])->name('homework.submissions.grade');
+    
+    // Route::get('/homework', [HomeworkController::class, 'index'])->name('homework.index');
+    // Route::post('/homework', [HomeworkController::class, 'store'])->name('homework.store');
+    // Route::put('/homework/{homeworkAssignment}', [HomeworkController::class, 'update'])->name('homework.update');
+    // Route::delete('/homework/{homeworkAssignment}', [HomeworkController::class, 'destroy'])->name('homework.destroy');
+    // Route::post('/homework/{homeworkAssignment}/submissions', [HomeworkController::class, 'submit'])->name('homework.submissions.store');
+    // Route::delete('/homework/{homeworkAssignment}/submissions/{homeworkSubmission}', [HomeworkController::class, 'destroySubmission'])->name('homework.submissions.destroy');
+    // Route::patch('/homework/{homeworkAssignment}/submissions/{homeworkSubmission}/grade', [HomeworkController::class, 'grade'])->name('homework.submissions.grade');
     
     Route::resource('exams', ExamController::class);
     Route::post('/exams/{exam}/publish', [ExamController::class, 'publish'])->name('exams.publish');
@@ -185,11 +197,16 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/staff/create', [StaffController::class, 'create'])->name('staff.create');
     Route::resource('staff', StaffController::class)->except(['create', 'edit']);
     Route::get('/staff/{staff}/edit', [StaffController::class, 'edit'])->name('staff.edit');
-    Route::post('/departments', [OrganizationLookupController::class, 'storeDepartment'])->name('departments.store');
-    Route::post('/designations', [OrganizationLookupController::class, 'storeDesignation'])->name('designations.store');
+
+    Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+    Route::resource('designations', DesignationController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+    
+    // Route::post('/departments', [OrganizationLookupController::class, 'storeDepartment'])->name('departments.store');
+    // Route::post('/designations', [OrganizationLookupController::class, 'storeDesignation'])->name('designations.store');
     Route::get('/promotions', [PromotionController::class, 'index'])->name('promotions.index');
     Route::post('/promotions', [PromotionController::class, 'store'])->name('promotions.store');
 
+    Route::get('/students/export', [StudentController::class, 'export'])->name('students.export');
     Route::get('/students/import', [StudentImportController::class, 'create'])->name('students.import.create');
     Route::get('/students/import/template', [StudentImportController::class, 'template'])->name('students.import.template');
     Route::post('/students/import', [StudentImportController::class, 'store'])->name('students.import.store');
@@ -205,6 +222,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/students/{student}/guardians/{guardian}/account/invite', [GuardianAccountController::class, 'invite'])->scopeBindings()->name('students.guardians.account.invite');
     Route::get('/students/{student}/notes/{note}/attachment', [StudentNoteController::class, 'download'])->name('students.notes.attachment');
     Route::resource('students.notes', StudentNoteController::class)->scoped();
+    Route::post('/students/{student}/guardians/{guardian}/account/resend', [GuardianAccountController::class, 'resend'])
+        ->scopeBindings()
+        ->name('students.guardians.account.resend');
 
     Route::resource('admissions', AdmissionController::class);
     Route::patch('/admissions/{admission}/status', [AdmissionController::class, 'transition'])->name('admissions.transition');
@@ -222,6 +242,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/permissions', [PermissionController::class, 'index'])->middleware('can:permissions.view')->name('permissions.index');
     Route::post('/permissions', [PermissionController::class, 'store'])->name('permissions.store');
     Route::delete('/permissions/{permission}', [PermissionController::class, 'destroy'])->middleware('can:permissions.delete')->name('permissions.destroy');
+
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
 });
 
 Route::prefix('supplies')->name('supplies.')->group(function (): void {

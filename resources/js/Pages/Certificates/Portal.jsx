@@ -1,7 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
-import PageAlerts from '../../Components/PageAlerts';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import { Field, inputClass } from '../Auth/Login';
 import { statusClass, typeLabel } from '../../lib/certificates';
 

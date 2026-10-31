@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, GraduationCap, LoaderCircle } from 'lucide-react';
-import { Field, inputClass } from './Login';
+import { Field, inputClass, PasswordInput } from './Login';
 
 export default function ResetPassword({ email, token }) {
     const form = useForm({
@@ -43,23 +43,21 @@ export default function ResetPassword({ email, token }) {
                             />
                         </Field>
                         <Field label="New password" error={form.errors.password}>
-                            <input
-                                type="password"
+                            <PasswordInput
                                 autoComplete="new-password"
                                 required
                                 value={form.data.password}
                                 onChange={(event) => form.setData('password', event.target.value)}
-                                className={inputClass(form.errors.password)}
+                                error={form.errors.password}
                             />
                         </Field>
                         <Field label="Confirm new password" error={form.errors.password_confirmation}>
-                            <input
-                                type="password"
+                            <PasswordInput
                                 autoComplete="new-password"
                                 required
                                 value={form.data.password_confirmation}
                                 onChange={(event) => form.setData('password_confirmation', event.target.value)}
-                                className={inputClass(form.errors.password_confirmation)}
+                                error={form.errors.password_confirmation}
                             />
                         </Field>
                         <button

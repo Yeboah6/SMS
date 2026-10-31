@@ -17,16 +17,17 @@ class StoreStaffRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role' => ['required', Rule::in(StaffDirectoryService::LINKABLE_ROLES)],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'confirmed', Password::defaults()],
-            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
-            'designation_id' => ['nullable', 'integer', 'exists:designations,id'],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'joining_date' => ['nullable', 'date', 'before_or_equal:today'],
-            'qualifications' => ['nullable', 'string', 'max:5000'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'role' => ['required', 'string', Rule::in(StaffDirectoryService::LINKABLE_ROLES)],
+            'password' => ['prohibited'],
+            'password_confirmation' => ['prohibited'],
+            'phone' => ['nullable', 'string', 'max:32'],
+            'joining_date' => ['nullable', 'date'],
+            'department_id' => ['nullable', 'exists:departments,id'],
+            'designation_id' => ['nullable', 'exists:designations,id'],
             'status' => ['required', Rule::in(['active', 'inactive'])],
+            'qualifications' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }
