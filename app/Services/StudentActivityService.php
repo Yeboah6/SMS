@@ -9,6 +9,8 @@ use App\Models\User;
 
 class StudentActivityService
 {
+    public function __construct(private AuditLogService $auditLogs) {}
+
     /**
      * @param  array<string, mixed>  $details
      */
@@ -20,7 +22,7 @@ class StudentActivityService
         ?AcademicYear $academicYear = null,
         array $details = [],
     ): StudentActivity {
-        return $student->activities()->create([
+        $activity = $student->activities()->create([
             'actor_id' => $actor?->id,
             'academic_year_id' => $academicYear?->id,
             'event_type' => $eventType,
@@ -28,5 +30,9 @@ class StudentActivityService
             'details' => $details,
             'occurred_at' => now(),
         ]);
+
+        $this->auditLogs->recordStudentActivity($activity, $student, $actor);
+
+        return $activity;
     }
 }

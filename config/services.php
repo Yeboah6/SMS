@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'sms_gateway' => [
+        'url' => env('SMS_GATEWAY_URL'),
+        'token' => env('SMS_GATEWAY_TOKEN'),
+        'sender' => env('SMS_GATEWAY_SENDER'),
+        'timeout' => (int) env('SMS_GATEWAY_TIMEOUT', 10),
+    ],
+
 ];

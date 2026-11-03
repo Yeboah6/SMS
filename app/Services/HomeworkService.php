@@ -296,43 +296,43 @@ class HomeworkService
     }
 
     /** Deletes an assignment nobody has submitted to (for example one created by mistake). */
-public function delete(HomeworkAssignment $assignment, User $actor): void
-{
-    if (! $actor->can('homework.delete')) {
-        throw new AuthorizationException('You are not allowed to delete homework.');
-    }
-
-    DB::transaction(function () use ($assignment, $actor): void {
-        $locked = HomeworkAssignment::query()->lockForUpdate()->findOrFail($assignment->id);
-
-        if (AcademicYear::query()->findOrFail($locked->academic_year_id)->status === AcademicYearStatus::Locked) {
-            throw ValidationException::withMessages(['homework' => 'Homework in a locked academic year cannot be deleted.']);
+    public function delete(HomeworkAssignment $assignment, User $actor): void
+    {
+        if (! $actor->can('homework.delete')) {
+            throw new AuthorizationException('You are not allowed to delete homework.');
         }
 
-        // A teacher may only delete homework for a subject they teach in that section.
-        if (! $actor->hasRole('Super Admin')) {
-            $staffId = Staff::query()->where('user_id', $actor->id)->value('id');
-            $teaches = TeacherSubjectAssignment::query()
-                ->where('staff_id', $staffId ?? 0)
-                ->where('academic_year_id', $locked->academic_year_id)
-                ->where('section_id', $locked->section_id)
-                ->where('subject_id', $locked->subject_id)
-                ->exists();
+        DB::transaction(function () use ($assignment, $actor): void {
+            $locked = HomeworkAssignment::query()->lockForUpdate()->findOrFail($assignment->id);
 
-            if (! $teaches) {
-                throw new AuthorizationException('You can only delete homework for subjects you teach.');
+            if (AcademicYear::query()->findOrFail($locked->academic_year_id)->status === AcademicYearStatus::Locked) {
+                throw ValidationException::withMessages(['homework' => 'Homework in a locked academic year cannot be deleted.']);
             }
-        }
 
-        if ($locked->submissions()->exists()) {
-            throw ValidationException::withMessages([
-                'homework' => 'Students have already submitted work for this assignment, so it cannot be deleted. Edit the due date to close it instead.',
-            ]);
-        }
+            // A teacher may only delete homework for a subject they teach in that section.
+            if (! $actor->hasRole('Super Admin')) {
+                $staffId = Staff::query()->where('user_id', $actor->id)->value('id');
+                $teaches = TeacherSubjectAssignment::query()
+                    ->where('staff_id', $staffId ?? 0)
+                    ->where('academic_year_id', $locked->academic_year_id)
+                    ->where('section_id', $locked->section_id)
+                    ->where('subject_id', $locked->subject_id)
+                    ->exists();
 
-        $locked->delete();
-    });
-}
+                if (! $teaches) {
+                    throw new AuthorizationException('You can only delete homework for subjects you teach.');
+                }
+            }
+
+            if ($locked->submissions()->exists()) {
+                throw ValidationException::withMessages([
+                    'homework' => 'Students have already submitted work for this assignment, so it cannot be deleted. Edit the due date to close it instead.',
+                ]);
+            }
+
+            $locked->delete();
+        });
+    }
 
     public function withdrawSubmission(
         HomeworkAssignment $assignment,
@@ -340,28 +340,28 @@ public function delete(HomeworkAssignment $assignment, User $actor): void
         User $actor,
     ): void {
         abort_unless($submission->homework_assignment_id === $assignment->id, 404);
-    
+
         $student = Student::query()
             ->where('user_id', $actor->id)
             ->where('status', 'active')
             ->first();
-    
+
         abort_unless($student && $submission->student_id === $student->id, 403);
-    
+
         $academicYear = AcademicYear::query()->find($assignment->academic_year_id);
-    
+
         if ($academicYear?->status === AcademicYearStatus::Locked) {
             throw ValidationException::withMessages(['homework' => 'This academic year is locked.']);
         }
-    
+
         if (today()->gt($assignment->due_date)) {
             throw ValidationException::withMessages(['homework' => 'The due date has passed.']);
         }
-    
+
         if ($submission->graded_at) {
             throw ValidationException::withMessages(['homework' => 'Graded submissions cannot be withdrawn.']);
         }
-    
+
         $submission->delete();
     }
 

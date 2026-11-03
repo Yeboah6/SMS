@@ -3,10 +3,12 @@
 use App\Enums\AcademicYearStatus;
 use App\Models\AcademicYear;
 use App\Models\ClassSubject;
+use App\Models\ClassSupplyRequirement;
 use App\Models\Enrolment;
 use App\Models\Exam;
 use App\Models\ExamMark;
 use App\Models\Guardian;
+use App\Models\InventoryItem;
 use App\Models\SchoolClass;
 use App\Models\SchoolSetting;
 use App\Models\Section;
@@ -422,10 +424,10 @@ test('principals can publish complete results and students can view only their o
         ]],
     ]);
 
-    $this->actingAs($studentUser)->get(route('exams.index'))
+    $this->actingAs($studentUser)->get(route('results.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('Exams/Index')
+            ->component('Results/Index')
             ->where('mode', 'student')
             ->has('results.data', 1)
             ->where('results.data.0.name', 'Term Examination')
@@ -435,13 +437,18 @@ test('principals can publish complete results and students can view only their o
             ->where('results.data.0.result', 'pass')
             ->where('results.data.0.subjects.0.marksObtained', 88));
 
-    $this->actingAs($principal)->get(route('exams.index', [
-        'academic_year_id' => $year->id,
-        'exam_id' => $exam->id,
-    ]))
+    $this->actingAs($studentUser)->get(route('results.show', $exam))
+        ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('selectedExamStatus', 'published')
-            ->where('canReopen', true));
+            ->component('Results/Show')
+            ->where('mode', 'student')
+            ->where('result.totalMarks', 88));
+
+    $this->actingAs($principal)->get(route('exams.show', $exam))
+        ->assertInertia(fn ($page) => $page
+            ->component('Exams/Show')
+            ->where('exam.status', 'published')
+            ->where('can.reopen', true));
 });
 
 test('parents can view published results only for linked children', function () {
@@ -460,6 +467,15 @@ test('parents can view published results only for linked children', function () 
         'is_primary' => true,
         'lives_with_student' => true,
     ]);
+    $requiredBook = InventoryItem::factory()->create(['name' => 'Mathematics Workbook']);
+    ClassSupplyRequirement::query()->create([
+        'academic_year_id' => $year->id,
+        'class_id' => $schoolClass->id,
+        'item_id' => $requiredBook->id,
+        'quantity_per_student' => 2,
+        'is_required' => true,
+        'notes' => 'Bring to class',
+    ]);
 
     $exam = createExam($principal, $year, $schoolClass, $subject);
     $examSubject = $exam->subjects->first();
@@ -474,16 +490,39 @@ test('parents can view published results only for linked children', function () 
     }
     $exam->update(['status' => 'published', 'published_at' => now()]);
 
-    $this->actingAs($parent)->get(route('exams.index', ['student_id' => $linkedStudent->id]))
+    $this->actingAs($parent)->get(route('results.index', ['student_id' => $linkedStudent->id]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('Exams/Index')
+            ->component('Results/Index')
             ->where('mode', 'parent')
             ->where('selectedStudentId', $linkedStudent->id)
+            ->where('bookRequirements.className', $schoolClass->name)
+            ->where('bookRequirements.academicYear', $year->name)
+            ->has('bookRequirements.items', 1)
+            ->where('bookRequirements.items.0.itemName', 'Mathematics Workbook')
+            ->where('bookRequirements.items.0.quantity', 2)
             ->has('results.data', 1)
             ->where('results.data.0.subjects.0.marksObtained', 87));
 
-    $this->actingAs($parent)->get(route('exams.index', ['student_id' => $unlinkedStudent->id]))
+    $this->actingAs($parent)
+        ->get(route('results.book-requirements.download', $linkedStudent))
+        ->assertDownload("book-requirements-{$linkedStudent->id}.pdf");
+
+    $this->actingAs($parent)->get(route('results.show', [
+        'exam' => $exam,
+        'student_id' => $linkedStudent->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Results/Show')
+            ->where('mode', 'parent')
+            ->where('studentId', $linkedStudent->id));
+
+    $this->actingAs($parent)->get(route('results.index', ['student_id' => $unlinkedStudent->id]))
+        ->assertNotFound();
+
+    $this->actingAs($parent)
+        ->get(route('results.book-requirements.download', $unlinkedStudent))
         ->assertNotFound();
 });
 

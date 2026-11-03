@@ -116,7 +116,7 @@ class TimetableController extends Controller
         $slots = (clone $scopedSlots)
             ->when($classId !== null, fn ($query) => $query->whereHas(
                 'teachingAssignment.section',
-                fn ($sections) => $sections->where('school_class_id', $classId),
+                fn ($sections) => $sections->where('class_id', $classId),
             ))
             ->with($this->slotRelations())
             ->orderBy('day_of_week')
@@ -149,15 +149,15 @@ class TimetableController extends Controller
     public function create(Request $request): Response
     {
         abort_unless($request->user()->can('timetable.manage'), 403);
-    
+
         $year = $request->filled('academic_year_id')
             ? AcademicYear::query()->findOrFail($request->integer('academic_year_id'))
             : AcademicYear::active()->first();
         abort_unless($year, 404);
         abort_if($year->status === AcademicYearStatus::Locked, 403);
-    
+
         $classId = $request->integer('class_id') ?: null;
-    
+
         return Inertia::render('Timetable/Create', [
             'academicYear' => ['id' => $year->id, 'name' => $year->name],
             'assignments' => $this->assignmentOptions($year, $classId),
@@ -326,7 +326,7 @@ class TimetableController extends Controller
             ->where('academic_year_id', $year->id)
             ->when($classId !== null, fn ($query) => $query->whereHas(
                 'section',
-                fn ($sections) => $sections->where('school_class_id', $classId),
+                fn ($sections) => $sections->where('class_id', $classId),
             ))
             ->whereHas('staff', fn ($query) => $query->where('status', 'active')->where('is_teacher', true))
             ->orderBy('section_id')

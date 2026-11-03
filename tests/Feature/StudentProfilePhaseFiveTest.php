@@ -14,6 +14,7 @@ use App\Models\Section;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\User;
+use App\Notifications\GuardianPortalInvitation;
 use App\Services\AcademicStructureService;
 use App\Services\AcademicYearService;
 use App\Services\StudentProfileService;
@@ -272,7 +273,8 @@ test('guardian invitation creates a Parent account with a password setup notific
     $invitedUser = User::query()->where('email', 'new-parent@example.test')->firstOrFail();
     expect($invitationGuardian->fresh()->user_id)->toBe($invitedUser->id)
         ->and($invitedUser->hasRole('Parent'))->toBeTrue();
-    Notification::assertSentTo($invitedUser, ResetPassword::class);
+    Notification::assertSentToOnce($invitedUser, GuardianPortalInvitation::class);
+    Notification::assertNotSentTo($invitedUser, ResetPassword::class);
 });
 
 test('student ID cards download as PDFs and remain scoped to visible student records', function () {

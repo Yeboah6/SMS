@@ -1,13 +1,20 @@
 <?php
 
 use App\Jobs\DispatchNoticeNotifications;
+use App\Models\Guardian;
 use App\Models\Notice;
 use App\Models\SchoolSetting;
+use App\Models\Staff;
+use App\Models\Student;
 use App\Models\User;
+use App\Notifications\Channels\SmsChannel;
 use App\Notifications\NoticePublishedNotification;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 
@@ -159,19 +166,42 @@ test('queued notice delivery follows configured channels and skips disabled deli
     Notification::assertSentToTimes($parent, NoticePublishedNotification::class, 2);
 
     SchoolSetting::query()->firstOrFail()->update([
+        'notification_settings' => [
+            'database_notices' => false,
+            'email_notices' => false,
+            'sms_notices' => true,
+            'notice_sms_body' => '{title}: {body}',
+        ],
+    ]);
+    $smsNotice = Notice::factory()->published()->create([
+        'audience' => 'parents',
+        'title' => 'Parent meeting',
+        'body' => 'Thursday at 5 PM.',
+    ]);
+    (new DispatchNoticeNotifications($smsNotice->id))->handle();
+
+    Notification::assertSentTo(
+        $parent,
+        NoticePublishedNotification::class,
+        fn (NoticePublishedNotification $notification): bool => $notification->via($parent) === [SmsChannel::class]
+            && $notification->toSms($parent) === 'Parent meeting: Thursday at 5 PM.',
+    );
+    Notification::assertSentToTimes($parent, NoticePublishedNotification::class, 3);
+
+    SchoolSetting::query()->firstOrFail()->update([
         'notification_settings' => ['database_notices' => false, 'email_notices' => false],
     ]);
     $disabledNotice = Notice::factory()->published()->create(['audience' => 'parents']);
     (new DispatchNoticeNotifications($disabledNotice->id))->handle();
 
-    Notification::assertSentToTimes($parent, NoticePublishedNotification::class, 2);
+    Notification::assertSentToTimes($parent, NoticePublishedNotification::class, 3);
 });
 
 test('users can mark only their own database notification as read', function () {
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
     $notice = Notice::factory()->published()->create();
-    $notification = new NoticePublishedNotification($notice->id, $notice->title, $notice->body);
+    $notification = new NoticePublishedNotification($notice);
     Mail::fake();
 
     Notification::sendNow($user, $notification);
@@ -191,17 +221,117 @@ test('users can mark only their own database notification as read', function () 
 
 test('notice mail escapes user supplied message content', function () {
     $user = User::factory()->make();
-    $notification = new NoticePublishedNotification(
-        1,
-        'School update',
-        "<script>alert('unsafe')</script>",
-    );
+    $notice = Notice::factory()->create([
+        'title' => 'School update',
+        'body' => "<script>alert('unsafe')</script>",
+    ]);
+    $notification = new NoticePublishedNotification($notice, ['mail']);
 
     $html = $notification->toMail($user)->render()->toHtml();
 
     expect($html)
         ->toContain('&lt;script&gt;')
         ->not->toContain("<script>alert('unsafe')</script>");
+});
+
+test('notice email uses the configured subject and body placeholders', function () {
+    $user = User::factory()->make();
+    $notice = Notice::factory()->create([
+        'title' => 'School update',
+        'body' => 'Meeting on Tuesday.',
+        'audience' => 'parents',
+    ]);
+    $notification = new NoticePublishedNotification($notice, ['mail'], templates: [
+        'notice_email_subject' => 'Reminder: {title}',
+        'notice_email_body' => '{body} Audience: {audience}. {url}',
+    ]);
+
+    $mail = $notification->toMail($user);
+    $html = $mail->render()->toHtml();
+
+    expect($mail->subject)->toBe('Reminder: School update')
+        ->and($html)->toContain('Meeting on Tuesday.')
+        ->toContain('Audience: parents')
+        ->toContain(route('notices.show', $notice));
+});
+
+test('notice SMS uses the editable template and sends to a student linked guardian', function () {
+    config([
+        'services.sms_gateway.url' => 'https://sms-gateway.example.test/messages',
+        'services.sms_gateway.token' => 'test-gateway-token',
+        'services.sms_gateway.sender' => 'Northstar',
+    ]);
+
+    $studentAccount = User::factory()->create();
+    $studentAccount->assignRole('Student');
+    $student = Student::query()->create([
+        'user_id' => $studentAccount->id,
+        'admission_number' => 'SMS-STUDENT-1',
+        'first_name' => 'Sam',
+        'last_name' => 'Student',
+        'date_of_birth' => '2012-01-01',
+        'gender' => 'female',
+        'admission_date' => today()->toDateString(),
+    ]);
+    $guardian = Guardian::query()->create([
+        'name' => 'Sam Guardian',
+        'phone' => '+233201234567',
+    ]);
+    $student->guardians()->attach($guardian, [
+        'relationship' => 'parent',
+        'is_primary' => true,
+        'lives_with_student' => true,
+    ]);
+    $notice = Notice::factory()->published()->create([
+        'title' => 'Exam timetable',
+        'body' => 'The timetable is ready.',
+        'audience' => 'students',
+    ]);
+
+    Http::preventStrayRequests();
+    Http::fake([
+        'sms-gateway.example.test/messages' => Http::response(['accepted' => true], 202),
+    ]);
+
+    Notification::sendNow($studentAccount, new NoticePublishedNotification(
+        $notice,
+        [SmsChannel::class],
+        templates: ['notice_sms_body' => '{title}: {body} ({audience}) {url}'],
+    ));
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+        && $request->url() === 'https://sms-gateway.example.test/messages'
+        && $request->hasHeader('Authorization', 'Bearer test-gateway-token')
+        && $request->hasHeader('Idempotency-Key')
+        && $request->data() === [
+            'recipient' => '+233201234567',
+            'message' => 'Exam timetable: The timetable is ready. (students) '.route('notices.show', $notice),
+            'sender' => 'Northstar',
+        ]);
+});
+
+test('notice SMS delivery surfaces gateway errors for queue retry', function () {
+    config(['services.sms_gateway.url' => 'https://sms-gateway.example.test/messages']);
+    $user = User::factory()->create();
+    $user->assignRole('Teacher');
+    Staff::query()->create([
+        'user_id' => $user->id,
+        'staff_number' => 'SMS-STAFF-1',
+        'name' => $user->name,
+        'phone' => '+15550101010',
+        'is_teacher' => true,
+        'status' => 'active',
+    ]);
+    $notice = Notice::factory()->published()->create();
+    Http::preventStrayRequests();
+    Http::fake([
+        'sms-gateway.example.test/messages' => Http::response(['error' => 'unavailable'], 503),
+    ]);
+
+    expect(fn () => Notification::sendNow(
+        $user,
+        new NoticePublishedNotification($notice, [SmsChannel::class]),
+    ))->toThrow(RequestException::class);
 });
 
 test('guests and users without notice permissions cannot access or create notices', function () {

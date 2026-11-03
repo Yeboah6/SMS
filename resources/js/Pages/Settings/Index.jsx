@@ -54,6 +54,7 @@ export default function SettingsIndex({ settings, configured, can }) {
                     <ul className="grid gap-2 text-sm">
                         <State label="In-app notification inbox" on={notifications.database_notices} />
                         <State label="Email notifications" on={notifications.email_notices} />
+                        <State label="SMS notifications" on={notifications.sms_notices} />
                     </ul>
                 </Card>
             </div>

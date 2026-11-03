@@ -4,15 +4,22 @@ namespace App\Notifications;
 
 use App\Models\Notice;
 use App\Models\SchoolSetting;
+use App\Notifications\Channels\SmsChannel;
+use App\Services\SchoolSettingsService;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class NoticePublishedNotification extends Notification
+class NoticePublishedNotification extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(
         public Notice $notice,
         public array $channels = ['database'],
         public ?string $publishedByName = null,
+        public array $templates = [],
     ) {}
 
     /** Resolve the enabled channels from the school's notification settings. */
@@ -25,7 +32,25 @@ class NoticePublishedNotification extends Notification
         return array_values(array_filter([
             ($settings['database_notices'] ?? true) ? 'database' : null,
             ($settings['email_notices'] ?? true) ? 'mail' : null,
+            ($settings['sms_notices'] ?? false) ? SmsChannel::class : null,
         ]));
+    }
+
+    /**
+     * @return array{notice_email_subject: string, notice_email_body: string, notice_sms_body: string}
+     */
+    public static function templatesFromSettings(): array
+    {
+        $defaults = app(SchoolSettingsService::class)->defaults()['notification_settings'];
+        $settings = SchoolSetting::query()
+            ->where('singleton_key', 'primary')
+            ->first()?->notification_settings ?? [];
+
+        return [
+            'notice_email_subject' => $settings['notice_email_subject'] ?? $defaults['notice_email_subject'],
+            'notice_email_body' => $settings['notice_email_body'] ?? $defaults['notice_email_body'],
+            'notice_sms_body' => $settings['notice_sms_body'] ?? $defaults['notice_sms_body'],
+        ];
     }
 
     public function via(object $notifiable): array
@@ -49,10 +74,31 @@ class NoticePublishedNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $values = $this->templateValues();
+        $templates = array_replace(self::templatesFromSettings(), $this->templates);
+
         return (new MailMessage)
-            ->subject($this->notice->title)
-            ->line($this->notice->title)
-            ->line($this->notice->body)
-            ->action('View notice', route('notices.show', $this->notice->id));
+            ->subject(strtr($templates['notice_email_subject'], $values))
+            ->line(strtr($templates['notice_email_body'], $values));
+    }
+
+    public function toSms(object $notifiable): string
+    {
+        $templates = array_replace(self::templatesFromSettings(), $this->templates);
+
+        return strtr($templates['notice_sms_body'], $this->templateValues());
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function templateValues(): array
+    {
+        return [
+            '{title}' => $this->notice->title,
+            '{body}' => $this->notice->body,
+            '{url}' => route('notices.show', $this->notice),
+            '{audience}' => $this->notice->audience,
+        ];
     }
 }

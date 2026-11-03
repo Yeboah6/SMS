@@ -84,6 +84,7 @@ const navigation = [
             { label: 'Users', href: '/users', icon: GraduationCap, permission: 'users.view' },
             { label: 'Roles', href: '/roles', icon: BookOpen, permission: 'roles.view' },
             { label: 'Permissions', href: '/permissions', icon: ShieldCheck, permission: 'permissions.view' },
+            { label: 'Audit log', href: '/audit-logs', icon: ClipboardList, permission: 'audit_logs.view' },
         ],
     },
     { label: 'Notices', href: '/notices', icon: Bell, permissions: ['notices.view', 'portal.notices.view'], roles: ['Principal', 'Teacher', 'Accountant', 'Librarian', 'Receptionist', 'Student', 'Parent', 'Super Admin'] },

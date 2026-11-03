@@ -16,7 +16,14 @@ class SchoolSettingsService
      * @return array{
      *     grade_settings: array{bands: list<array{label: string, minimum_percentage: int}>},
      *     fee_settings: array{currency_code: string, default_due_days: int},
-     *     notification_settings: array{database_notices: bool, email_notices: bool}
+     *     notification_settings: array{
+     *         database_notices: bool,
+     *         email_notices: bool,
+     *         sms_notices: bool,
+     *         notice_email_subject: string,
+     *         notice_email_body: string,
+     *         notice_sms_body: string
+     *     }
      * }
      */
     public function defaults(): array
@@ -38,6 +45,10 @@ class SchoolSettingsService
             'notification_settings' => [
                 'database_notices' => true,
                 'email_notices' => true,
+                'sms_notices' => false,
+                'notice_email_subject' => '{title}',
+                'notice_email_body' => "{body}\n\nRead more: {url}",
+                'notice_sms_body' => '{title}: {body} {url}',
             ],
         ];
     }

@@ -11,7 +11,6 @@ use App\Services\NoticeService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -187,7 +186,7 @@ class NoticeController extends Controller
         $publishedNotice = $service->publish($notice, $request->user());
         $service->dispatchNotifications($publishedNotice);
         $this->notifyAuthorOfPublication($publishedNotice, $request->user());
-    
+
         return back()->with('status', 'Notice published and queued for delivery.');
     }
 
@@ -273,7 +272,7 @@ class NoticeController extends Controller
     private function counts(string $today): array
     {
         $stats = Notice::query()->selectRaw(
-            "COALESCE(SUM(CASE WHEN expires_at IS NULL OR expires_at >= ? THEN 1 ELSE 0 END), 0) as live, "
+            'COALESCE(SUM(CASE WHEN expires_at IS NULL OR expires_at >= ? THEN 1 ELSE 0 END), 0) as live, '
             ."COALESCE(SUM(CASE WHEN status = 'draft' AND (expires_at IS NULL OR expires_at >= ?) THEN 1 ELSE 0 END), 0) as drafts, "
             ."COALESCE(SUM(CASE WHEN status = 'published' AND (expires_at IS NULL OR expires_at >= ?) THEN 1 ELSE 0 END), 0) as published, "
             .'COALESCE(SUM(CASE WHEN expires_at IS NOT NULL AND expires_at < ? THEN 1 ELSE 0 END), 0) as expired',
@@ -293,17 +292,22 @@ class NoticeController extends Controller
         if ($notice->created_by === $publisher->id) {
             return;
         }
-    
+
         $author = $notice->creator;
         if (! $author) {
             return;
         }
-    
+
         $channels = NoticePublishedNotification::channelsFromSettings();
         if ($channels === []) {
             return;
         }
-    
-        $author->notify(new NoticePublishedNotification($notice, $channels, $publisher->name));
+
+        $author->notify(new NoticePublishedNotification(
+            $notice,
+            $channels,
+            $publisher->name,
+            NoticePublishedNotification::templatesFromSettings(),
+        ));
     }
 }

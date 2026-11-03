@@ -349,23 +349,6 @@ export default function StudentShow({ student, canEdit, canDelete, canEnrol, can
                 )}
             </section>
 
-            {canEnrol && student.enrolments.length > 0 && (
-                <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                    <h2 className="font-semibold text-slate-900">Add academic enrolment</h2>
-                    <p className="mt-1 text-sm text-slate-500">Each year is stored as a separate history record; existing enrolments are never overwritten.</p>
-                    <form onSubmit={enrol} className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <EnrolmentFields
-                            form={enrolmentForm}
-                            academicYears={academicYears}
-                            availableClasses={availableClasses}
-                            selectedClass={selectedClass}
-                        />
-                        <div className="flex items-end xl:col-span-4">
-                            <button disabled={enrolmentForm.processing} className="rounded-xl bg-teal-800 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-900 disabled:opacity-60">Save enrolment</button>
-                        </div>
-                    </form>
-                </section>
-            )}
             </>}
 
             {activeTab === 'attendance' && canViewAttendance && (

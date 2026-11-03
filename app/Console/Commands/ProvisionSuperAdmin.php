@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -16,7 +17,7 @@ use Spatie\Permission\Models\Role;
 #[Description('Create the first Super Admin with a securely prompted password')]
 class ProvisionSuperAdmin extends Command
 {
-    public function handle(): int
+    public function handle(AuditLogService $auditLogs): int
     {
         if (User::query()->role('Super Admin')->exists()) {
             $this->error('A Super Admin already exists. Use the Users page to manage accounts.');
@@ -68,7 +69,7 @@ class ProvisionSuperAdmin extends Command
             return self::FAILURE;
         }
 
-        $created = DB::transaction(function () use ($name, $email, $password): bool {
+        $created = DB::transaction(function () use ($name, $email, $password, $auditLogs): bool {
             $role = Role::query()
                 ->where('name', 'Super Admin')
                 ->where('guard_name', 'web')
@@ -85,6 +86,7 @@ class ProvisionSuperAdmin extends Command
                 'password' => Hash::make((string) $password),
             ]);
             $user->assignRole($role);
+            $auditLogs->recordRelationshipChange($user, 'roles.updated', ['roles'], null);
 
             return true;
         });

@@ -12,6 +12,8 @@ use Illuminate\Validation\ValidationException;
 
 class GuardianAccountService
 {
+    public function __construct(private AuditLogService $auditLogs) {}
+
     public function linkExisting(Guardian $guardian, int $userId): void
     {
         DB::transaction(function () use ($guardian, $userId): void {
@@ -86,19 +88,12 @@ class GuardianAccountService
                 'password' => Str::random(64),
             ]);
             $user->assignRole('Parent');
+            $this->auditLogs->recordRelationshipChange($user, 'roles.updated', ['roles'], null);
             $guardian->user()->associate($user);
             $guardian->save();
 
             return $user;
         });
-
-        $status = Password::sendResetLink(['email' => $user->email]);
-
-        if ($status !== Password::RESET_LINK_SENT) {
-            throw ValidationException::withMessages([
-                'email' => 'The portal account was created, but its password setup email could not be sent. Use password reset to resend the link.',
-            ]);
-        }
 
         $this->sendInvitation($user);
 

@@ -54,9 +54,11 @@ The application is being delivered in sequenced phases. **Phase 1** establishes 
    npm run dev
    ```
 
-   Or build the production frontend with `npm run build`. Run `php artisan queue:work` in another terminal to deliver queued notice emails.
+   Or build the production frontend with `npm run build`. Run `php artisan queue:work` in another terminal to deliver queued notice emails and SMS messages.
 
 Local password-reset mail is written to the Laravel log by the default `MAIL_MAILER=log` configuration. Public self-registration is intentionally disabled; authenticated users with the appropriate permissions can manage accounts from the Users page.
+
+The pending Phase 14 communication items in the overview are now complete: published-notice email subjects/bodies and SMS message bodies are editable under **Settings → Notifications**. To enable SMS notices, configure `SMS_GATEWAY_URL` and optionally `SMS_GATEWAY_TOKEN`, `SMS_GATEWAY_SENDER`, and `SMS_GATEWAY_TIMEOUT` in the server environment. The generic gateway receives a JSON `POST` containing `recipient`, `message`, and the optional `sender`; student-audience notices are sent to linked guardian phone numbers.
 
 ## Database and environment
 

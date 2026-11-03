@@ -3,20 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Models\AcademicYear;
+use App\Models\Enrolment;
 use App\Models\Exam;
 use App\Models\ExamSubject;
 use App\Models\Student;
 use App\Services\SchoolSettingsService;
+use App\Services\SupplyRequirementService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /** Published results for students and parents. */
 class ResultController extends Controller
 {
-    public function index(Request $request, SchoolSettingsService $settings): Response
-    {
+    public function index(
+        Request $request,
+        SchoolSettingsService $settings,
+        SupplyRequirementService $requirements,
+    ): Response {
         [$mode, $students, $selectedStudentId, $student] = $this->portalContext($request);
 
         $studentIds = $mode === 'parent'
@@ -46,11 +54,32 @@ class ResultController extends Controller
                 'name' => $this->studentName($child),
             ])->values() : [],
             'selectedStudentId' => $selectedStudentId,
+            'bookRequirements' => $mode === 'parent' && $student
+                ? $this->bookRequirements($student, $requirements)
+                : null,
             'results' => $this->resultsQuery($student, $request->integer('academic_year_id') ?: null)
                 ->paginate(20)
                 ->withQueryString()
                 ->through(fn (Exam $exam): array => $this->resultPayload($exam, $bands, $settings)),
         ]);
+    }
+
+    public function downloadBookRequirements(
+        Request $request,
+        Student $student,
+        SupplyRequirementService $requirements,
+    ): HttpResponse {
+        [, $students] = $this->portalContext($request);
+        abort_unless($students->contains('id', $student->id), 404);
+
+        $bookRequirements = $this->bookRequirements($student, $requirements);
+        abort_unless($bookRequirements, 404);
+
+        return Pdf::loadView('pdf.student-book-requirements', [
+            'student' => $student,
+            'bookRequirements' => $bookRequirements,
+            'schoolName' => config('app.name'),
+        ])->download("book-requirements-{$student->id}.pdf");
     }
 
     public function show(Request $request, Exam $exam, SchoolSettingsService $settings): Response
@@ -68,7 +97,7 @@ class ResultController extends Controller
         ]);
     }
 
-    /** @return array{0: string, 1: \Illuminate\Support\Collection, 2: ?int, 3: ?Student} */
+    /** @return array{0: string, 1: Collection, 2: ?int, 3: ?Student} */
     private function portalContext(Request $request): array
     {
         $user = $request->user();
@@ -95,6 +124,46 @@ class ResultController extends Controller
     private function studentName(Student $student): string
     {
         return trim(implode(' ', array_filter([$student->first_name, $student->middle_name, $student->last_name])));
+    }
+
+    /**
+     * @return array{academicYear: string, className: string, complete: bool, items: list<array<string, mixed>>}|null
+     */
+    private function bookRequirements(Student $student, SupplyRequirementService $service): ?array
+    {
+        $year = AcademicYear::active()->first();
+        $enrolment = $year
+            ? Enrolment::query()
+                ->with('schoolClass:id,name')
+                ->where('student_id', $student->id)
+                ->where('academic_year_id', $year->id)
+                ->where('status', 'active')
+                ->first()
+            : null;
+
+        if (! $year || ! $enrolment?->schoolClass) {
+            return null;
+        }
+
+        $completion = $service->completion($year, $enrolment->schoolClass, $student->id);
+        $studentProgress = collect($completion['students'])->firstWhere('studentId', $student->id);
+
+        return [
+            'academicYear' => $year->name,
+            'className' => $enrolment->schoolClass->name,
+            'complete' => $studentProgress['complete'] ?? true,
+            'items' => collect($completion['requirements'])->map(fn (array $requirement): array => [
+                'id' => $requirement['id'],
+                'itemName' => $requirement['itemName'],
+                'unit' => $requirement['unit'],
+                'quantity' => $requirement['quantity'],
+                'isRequired' => $requirement['isRequired'],
+                'termName' => $requirement['termName'],
+                'notes' => $requirement['notes'],
+                'purchased' => $studentProgress['lines'][$requirement['id']]['purchased'] ?? 0,
+                'outstanding' => $studentProgress['lines'][$requirement['id']]['outstanding'] ?? $requirement['quantity'],
+            ])->values()->all(),
+        ];
     }
 
     private function resultsQuery(?Student $student, ?int $yearId): Builder

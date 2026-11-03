@@ -40,8 +40,11 @@ class DispatchNoticeNotifications implements ShouldQueue
 
         $recipients->chunkById(200, function ($users) use ($notice, $channels): void {
             foreach ($users as $user) {
-                // ⬇ was: new NoticePublishedNotification($notice->id, $notice->title, $notice->body, $channels)
-                $user->notify(new NoticePublishedNotification($notice, $channels));
+                $user->notify(new NoticePublishedNotification(
+                    $notice,
+                    $channels,
+                    templates: NoticePublishedNotification::templatesFromSettings(),
+                ));
             }
         });
     }

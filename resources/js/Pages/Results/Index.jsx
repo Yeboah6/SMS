@@ -3,7 +3,7 @@ import AppLayout from '../../Layouts/AppLayout';
 import ResultCard from '../../Components/Exams/ResultCard';
 import { Field, inputClass } from '../Auth/Login';
 
-export default function ResultsIndex({ mode, results, academicYears, selectedAcademicYearId, students, selectedStudentId }) {
+export default function ResultsIndex({ mode, results, academicYears, selectedAcademicYearId, students, selectedStudentId, bookRequirements }) {
     const title = mode === 'parent' ? 'Children’s results' : 'My results';
 
     function updateFilters(studentId, academicYearId) {
@@ -45,6 +45,68 @@ export default function ResultsIndex({ mode, results, academicYears, selectedAca
                     </div>
                 </div>
             </section>
+
+            {mode === 'parent' && selectedStudentId && (
+                <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <h2 className="font-semibold text-slate-900">Book requirements</h2>
+                            {bookRequirements ? (
+                                <p className="mt-1 text-sm text-slate-500">
+                                    {bookRequirements.className} · {bookRequirements.academicYear}
+                                </p>
+                            ) : (
+                                <p className="mt-1 text-sm text-slate-500">No current class requirements are available for this student.</p>
+                            )}
+                        </div>
+                        {bookRequirements && (
+                            <div className="flex flex-wrap items-center gap-3">
+                                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${bookRequirements.complete ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>
+                                    {bookRequirements.complete ? 'All required items covered' : 'Items still needed'}
+                                </span>
+                                <a
+                                    href={`/results/students/${selectedStudentId}/book-requirements/download`}
+                                    className="rounded-lg bg-teal-800 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-900"
+                                >
+                                    Download requirements
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                    {bookRequirements && (bookRequirements.items.length === 0 ? (
+                        <p className="mt-4 rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-500">No book requirements are set for this class.</p>
+                    ) : (
+                        <div className="mt-4 overflow-x-auto">
+                            <table className="w-full min-w-[560px] text-left text-sm">
+                                <thead className="border-b border-slate-100 text-xs text-slate-500">
+                                    <tr>
+                                        <th className="py-3 pr-4">Book / item</th>
+                                        <th className="py-3 pr-4">Quantity</th>
+                                        <th className="py-3 pr-4">Bought</th>
+                                        <th className="py-3 pr-4">Still needed</th>
+                                        <th className="py-3">Term</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {bookRequirements.items.map((item) => (
+                                        <tr key={item.id}>
+                                            <td className="py-3 pr-4 text-slate-800">
+                                                {item.itemName}
+                                                {!item.isRequired && <span className="ml-2 text-xs text-slate-500">recommended</span>}
+                                                {item.notes && <span className="block text-xs text-slate-500">{item.notes}</span>}
+                                            </td>
+                                            <td className="py-3 pr-4">{item.quantity} {item.unit}</td>
+                                            <td className="py-3 pr-4">{item.purchased}</td>
+                                            <td className="py-3 pr-4">{item.outstanding}</td>
+                                            <td className="py-3">{item.termName || 'Full year'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ))}
+                </section>
+            )}
 
             {mode === 'parent' && !selectedStudentId ? (
                 <Empty

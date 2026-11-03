@@ -9,6 +9,8 @@ use Spatie\Permission\Models\Role;
 
 class UserAdministrationService
 {
+    public function __construct(private AuditLogService $auditLogs) {}
+
     /**
      * @param  array{name: string, email: string, password: string, role: string}  $data
      */
@@ -28,6 +30,7 @@ class UserAdministrationService
             ]);
 
             $user->syncRoles([$role]);
+            $this->auditLogs->recordRelationshipChange($user, 'roles.updated', ['roles'], $actor);
 
             return $user;
         });
@@ -41,6 +44,7 @@ class UserAdministrationService
         return DB::transaction(function () use ($user, $data, $actor): User {
             $user = User::query()->lockForUpdate()->findOrFail($user->id);
             $newRole = Role::findByName($data['role'], 'web');
+            $previousRoles = $user->getRoleNames()->sort()->values()->all();
 
             if (
                 ($user->hasRole('Super Admin') || $newRole->name === 'Super Admin')
@@ -68,6 +72,11 @@ class UserAdministrationService
 
             $user->save();
             $user->syncRoles([$newRole]);
+            $currentRoles = $user->getRoleNames()->sort()->values()->all();
+
+            if ($previousRoles !== $currentRoles) {
+                $this->auditLogs->recordRelationshipChange($user, 'roles.updated', ['roles'], $actor);
+            }
 
             return $user;
         });

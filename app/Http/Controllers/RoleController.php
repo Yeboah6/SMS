@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreRoleRequest;
 use App\Http\Requests\UpdateRolePermissionsRequest;
+use App\Services\AuditLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -59,9 +60,9 @@ class RoleController extends Controller
         ]);
     }
 
-    public function store(StoreRoleRequest $request): RedirectResponse
+    public function store(StoreRoleRequest $request, AuditLogService $auditLogs): RedirectResponse
     {
-        DB::transaction(function () use ($request): void {
+        DB::transaction(function () use ($request, $auditLogs): void {
             $role = Role::query()->create([
                 'name' => $request->validated('name'),
                 'guard_name' => 'web',
@@ -73,6 +74,15 @@ class RoleController extends Controller
                 ->get();
 
             $role->syncPermissions($permissions);
+
+            if ($permissions->isNotEmpty()) {
+                $auditLogs->recordRelationshipChange(
+                    $role,
+                    'permissions.updated',
+                    ['permissions'],
+                    $request->user(),
+                );
+            }
         });
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -82,16 +92,28 @@ class RoleController extends Controller
     public function update(
         UpdateRolePermissionsRequest $request,
         Role $role,
+        AuditLogService $auditLogs,
     ): RedirectResponse {
         abort_unless($role->guard_name === 'web', 404);
 
-        DB::transaction(function () use ($request, $role): void {
+        DB::transaction(function () use ($request, $role, $auditLogs): void {
+            $previousPermissions = $role->permissions()->pluck('name')->sort()->values()->all();
             $permissions = Permission::query()
                 ->where('guard_name', 'web')
                 ->whereKey($request->validated('permission_ids'))
                 ->get();
 
             $role->syncPermissions($permissions);
+            $currentPermissions = $permissions->pluck('name')->sort()->values()->all();
+
+            if ($previousPermissions !== $currentPermissions) {
+                $auditLogs->recordRelationshipChange(
+                    $role,
+                    'permissions.updated',
+                    ['permissions'],
+                    $request->user(),
+                );
+            }
         });
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 

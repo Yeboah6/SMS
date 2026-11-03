@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StorePermissionRequest;
+use App\Services\AuditLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -38,15 +39,22 @@ class PermissionController extends Controller
         ]);
     }
 
-    public function store(StorePermissionRequest $request): RedirectResponse
+    public function store(StorePermissionRequest $request, AuditLogService $auditLogs): RedirectResponse
     {
-        DB::transaction(function () use ($request): void {
+        DB::transaction(function () use ($request, $auditLogs): void {
             $permission = Permission::query()->create([
                 'name' => $request->validated('name'),
                 'guard_name' => 'web',
             ]);
 
-            Role::findByName('Super Admin', 'web')->givePermissionTo($permission);
+            $role = Role::findByName('Super Admin', 'web');
+            $role->givePermissionTo($permission);
+            $auditLogs->recordRelationshipChange(
+                $role,
+                'permissions.updated',
+                ['permissions'],
+                $request->user(),
+            );
         });
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 

@@ -12,7 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class AdmissionWorkflowService
 {
-    public function __construct(private StudentProfileService $studentProfiles) {}
+    public function __construct(
+        private StudentProfileService $studentProfiles,
+        private AuditLogService $auditLogs,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -103,7 +106,7 @@ class AdmissionWorkflowService
                 }
 
                 if ($data['create_student_account'] ?? false) {
-                    $studentAccount = $this->createStudentAccount($student, $data['student_email']);
+                    $studentAccount = $this->createStudentAccount($student, $data['student_email'], $actor);
                 }
 
                 return;
@@ -172,7 +175,7 @@ class AdmissionWorkflowService
         return $student;
     }
 
-    private function createStudentAccount(Student $student, string $email): User
+    private function createStudentAccount(Student $student, string $email, User $actor): User
     {
         $email = Str::lower(trim($email));
 
@@ -192,6 +195,7 @@ class AdmissionWorkflowService
             'password' => Str::random(64),
         ]);
         $user->assignRole('Student');
+        $this->auditLogs->recordRelationshipChange($user, 'roles.updated', ['roles'], $actor);
         $student->user()->associate($user);
         $student->save();
 

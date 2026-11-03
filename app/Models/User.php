@@ -49,4 +49,44 @@ class User extends Authenticatable
     {
         return $this->hasMany(Guardian::class);
     }
+
+    /**
+     * Resolve SMS destinations from the person's linked school profiles.
+     *
+     * Student-audience notices are routed to linked guardian phones because student accounts
+     * do not store phone numbers directly.
+     *
+     * @return list<string>
+     */
+    public function routeNotificationForSms(): array
+    {
+        $phoneNumbers = collect();
+        $staffPhone = $this->staff()->where('status', 'active')->value('phone');
+
+        if (filled($staffPhone)) {
+            $phoneNumbers->push($staffPhone);
+        }
+
+        if ($this->hasRole('Parent')) {
+            $phoneNumbers->push(...$this->guardians()->whereNotNull('phone')->pluck('phone'));
+        }
+
+        if ($this->hasRole('Student')) {
+            $student = $this->student()
+                ->where('status', 'active')
+                ->with('guardians')
+                ->first();
+
+            if ($student !== null) {
+                $phoneNumbers->push(...$student->guardians->pluck('phone'));
+            }
+        }
+
+        return $phoneNumbers
+            ->map(fn (string $phone): string => trim($phone))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
 }

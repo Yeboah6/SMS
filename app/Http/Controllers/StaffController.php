@@ -10,6 +10,7 @@ use App\Models\Staff;
 use App\Services\StaffDirectoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -70,14 +71,19 @@ class StaffController extends Controller
 
     public function store(StoreStaffRequest $request, StaffDirectoryService $service): RedirectResponse
     {
-        [$staff, $password] = $service->create($request->validated());
+        $staff = $service->create($request->validated());
+        $redirect = to_route('staff.show', $staff)
+            ->with('status', "Staff profile {$staff->staff_number} created.");
 
-        return to_route('staff.show', $staff)
-            ->with('status', "Staff profile {$staff->staff_number} created.")
-            ->with('generated_credentials', [
-                'email' => $staff->email,
-                'password' => $password,
+        if (Password::sendResetLink(['email' => $staff->email]) === Password::RESET_LINK_SENT) {
+            $redirect->with('status', "Staff profile {$staff->staff_number} created. Password setup link sent to {$staff->email}.");
+        } else {
+            $redirect->withErrors([
+                'password_setup' => "Staff profile {$staff->staff_number} was created, but the password setup link could not be sent. Ask {$staff->email} to use Forgot password to request a new link.",
             ]);
+        }
+
+        return $redirect;
     }
 
     public function show(Request $request, Staff $staff): Response
@@ -111,16 +117,16 @@ class StaffController extends Controller
     public function update(UpdateStaffRequest $request, Staff $staff, StaffDirectoryService $service): RedirectResponse
     {
         [$staff, $generatedPassword] = $service->update($staff, $request->validated());
-    
+
         $redirect = to_route('staff.show', $staff)->with('status', 'Staff profile updated.');
-    
+
         if ($generatedPassword) {
             $redirect->with('generated_credentials', [
                 'email' => $staff->email,
                 'password' => $generatedPassword,
             ]);
         }
-    
+
         return $redirect;
     }
 

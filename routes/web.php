@@ -7,62 +7,57 @@ use App\Http\Controllers\AdmissionDocumentController;
 use App\Http\Controllers\AdmissionFollowUpController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceReportController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\BookController;
+use App\Http\Controllers\BookCopyController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\ExamController;
+use App\Http\Controllers\ExamMarkController;
 use App\Http\Controllers\FeeController;
 use App\Http\Controllers\FeeHeadController;
 use App\Http\Controllers\FeeStructureController;
-use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\PaymentController;
-// use App\Http\Controllers\FeeSpreadsheetController;
 use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\GuardianAccountController;
 use App\Http\Controllers\HomeworkController;
+use App\Http\Controllers\InventoryItemController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\LeaveRequestController;
-use App\Http\Controllers\BookController;
-use App\Http\Controllers\BookCopyController;
 use App\Http\Controllers\LibraryController;
 use App\Http\Controllers\LibraryLoanController;
 use App\Http\Controllers\NoticeController;
-use App\Http\Controllers\OrganizationLookupController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PublicEnquiryController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\SchoolClassController;
-use App\Http\Controllers\SchoolSettingsController;
-use App\Http\Controllers\StaffController;
-use App\Http\Controllers\StudentController;
-use App\Http\Controllers\StudentDocumentController;
-use App\Http\Controllers\StudentIdCardController;
-use App\Http\Controllers\StudentNoteController;
-use App\Http\Controllers\StudentTransferController;
-use App\Http\Controllers\SubjectController;
-use App\Http\Controllers\TeacherAssignmentController;
-use App\Http\Controllers\TimetableController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\SectionController;
-use App\Http\Controllers\StudentImportController;
-use App\Http\Controllers\ExamMarkController;
-use App\Http\Controllers\ResultController;
-
-use App\Http\Controllers\CategoryController;
-use App\Http\Controllers\SuppliesDashboardController;
-use App\Http\Controllers\InventoryItemController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RequirementController;
+use App\Http\Controllers\ResultController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\SchoolClassController;
+use App\Http\Controllers\SchoolSettingsController;
+use App\Http\Controllers\SectionController;
+use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StockMovementController;
+use App\Http\Controllers\StudentController;
+use App\Http\Controllers\StudentDocumentController;
+use App\Http\Controllers\StudentIdCardController;
+use App\Http\Controllers\StudentImportController;
+use App\Http\Controllers\StudentNoteController;
 use App\Http\Controllers\StudentSupplyController;
+use App\Http\Controllers\StudentTransferController;
+use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\SupplierController;
-
-use App\Http\Controllers\DepartmentController;
-use App\Http\Controllers\DesignationController;
-
-use App\Http\Controllers\ProfileController;
-
+use App\Http\Controllers\SuppliesDashboardController;
+use App\Http\Controllers\TeacherAssignmentController;
+use App\Http\Controllers\TimetableController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login');
@@ -95,7 +90,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/academic-years/{academicYear}/complete', [AcademicYearController::class, 'complete'])->name('academic-years.complete');
     Route::post('/academic-years/{academicYear}/lock', [AcademicYearController::class, 'lock'])->name('academic-years.lock');
     Route::post('/academic-years/{academicYear}/terms', [AcademicYearController::class, 'storeTerm'])->name('academic-years.terms.store');
-    
+
     Route::resource('classes', SchoolClassController::class)
         ->parameters(['classes' => 'schoolClass']);
     Route::put('/classes/{schoolClass}/subjects', [SchoolClassController::class, 'syncSubjects'])
@@ -107,9 +102,9 @@ Route::middleware('auth')->group(function (): void {
 
     Route::post('/sections/{section}/teacher-assignments', [TeacherAssignmentController::class, 'storeSection'])->name('sections.teacher-assignments.store');
     Route::post('/sections/{section}/subject-assignments', [TeacherAssignmentController::class, 'storeSubject'])->name('sections.subject-assignments.store');
-    
+
     Route::resource('attendance', AttendanceController::class)->except(['update']);
-    
+
     Route::get('/reports/attendance', [AttendanceReportController::class, 'index'])->middleware('can:reports.view')->name('reports.attendance.index');
     Route::get('/reports/attendance/export', [AttendanceReportController::class, 'export'])->middleware('can:reports.export')->name('reports.attendance.export');
     Route::get('/reports/academic', [AcademicResultsReportController::class, 'index'])->middleware('can:results.view')->name('reports.academic.index');
@@ -118,7 +113,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/reports/financial/export', [FinancialReportController::class, 'export'])->middleware('can:reports.financial.export')->name('reports.financial.export');
     Route::get('/reports/financial/outstanding', [FinancialReportController::class, 'outstanding'])->middleware('can:reports.financial.view')->name('reports.financial.outstanding');
     Route::get('/reports/financial/outstanding/export', [FinancialReportController::class, 'exportOutstanding'])->middleware('can:reports.financial.export')->name('reports.financial.outstanding.export');
-    
+
     Route::resource('certificates', CertificateController::class)
         ->parameters(['certificates' => 'certificateRequest']);
     Route::post('/certificates/issue', [CertificateController::class, 'issue'])->name('certificates.issue');
@@ -133,19 +128,11 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/leave-requests', [LeaveRequestController::class, 'store'])->name('leave-requests.store');
     Route::post('/leave-requests/{leaveRequest}/review', [LeaveRequestController::class, 'review'])->name('leave-requests.review');
     Route::post('/leave-requests/{leaveRequest}/cancel', [LeaveRequestController::class, 'cancel'])->name('leave-requests.cancel');
-    Route::resource('homework', HomeworkController::class)->parameters(['homework' => 'homeworkAssignment']);
 
+    Route::resource('homework', HomeworkController::class)->parameters(['homework' => 'homeworkAssignment']);
     Route::post('/homework/{homeworkAssignment}/submissions', [HomeworkController::class, 'submit'])->name('homework.submissions.store');
     Route::patch('/homework/{homeworkAssignment}/submissions/{homeworkSubmission}/grade', [HomeworkController::class, 'grade'])->name('homework.submissions.grade');
-    
-    // Route::get('/homework', [HomeworkController::class, 'index'])->name('homework.index');
-    // Route::post('/homework', [HomeworkController::class, 'store'])->name('homework.store');
-    // Route::put('/homework/{homeworkAssignment}', [HomeworkController::class, 'update'])->name('homework.update');
-    // Route::delete('/homework/{homeworkAssignment}', [HomeworkController::class, 'destroy'])->name('homework.destroy');
-    // Route::post('/homework/{homeworkAssignment}/submissions', [HomeworkController::class, 'submit'])->name('homework.submissions.store');
-    // Route::delete('/homework/{homeworkAssignment}/submissions/{homeworkSubmission}', [HomeworkController::class, 'destroySubmission'])->name('homework.submissions.destroy');
-    // Route::patch('/homework/{homeworkAssignment}/submissions/{homeworkSubmission}/grade', [HomeworkController::class, 'grade'])->name('homework.submissions.grade');
-    
+
     Route::resource('exams', ExamController::class);
     Route::post('/exams/{exam}/publish', [ExamController::class, 'publish'])->name('exams.publish');
     Route::post('/exams/{exam}/reopen', [ExamController::class, 'reopen'])->name('exams.reopen');
@@ -154,6 +141,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/exams/{exam}/subjects/{examSubject}/marks', [ExamMarkController::class, 'store'])->name('exams.marks.store');
     // Published results (students and parents)
     Route::get('/results', [ResultController::class, 'index'])->name('results.index');
+    Route::get('/results/students/{student}/book-requirements/download', [ResultController::class, 'downloadBookRequirements'])->name('results.book-requirements.download');
     Route::get('/results/{exam}', [ResultController::class, 'show'])->name('results.show');
 
     Route::get('/fees', [FeeController::class, 'index'])->name('fees.index');
@@ -166,12 +154,6 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/invoices/{invoice}/payments', [PaymentController::class, 'store'])->name('invoices.payments.store');
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
-
-    // Route::get('/exams', [ExamController::class, 'index'])->name('exams.index');
-    // Route::post('/exams', [ExamController::class, 'store'])->name('exams.store');
-    // Route::post('/exams/{exam}/subjects/{examSubject}/marks', [ExamController::class, 'recordMarks'])->name('exams.marks.store');
-    // Route::post('/exams/{exam}/publish', [ExamController::class, 'publish'])->name('exams.publish');
-    // Route::post('/exams/{exam}/reopen', [ExamController::class, 'reopen'])->name('exams.reopen');
 
     Route::get('/library', [LibraryController::class, 'index'])->name('library.index');
     Route::resource('library/books', BookController::class)
@@ -200,9 +182,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
     Route::resource('designations', DesignationController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
-    
-    // Route::post('/departments', [OrganizationLookupController::class, 'storeDepartment'])->name('departments.store');
-    // Route::post('/designations', [OrganizationLookupController::class, 'storeDesignation'])->name('designations.store');
+
     Route::get('/promotions', [PromotionController::class, 'index'])->name('promotions.index');
     Route::post('/promotions', [PromotionController::class, 'store'])->name('promotions.store');
 
@@ -234,7 +214,7 @@ Route::middleware('auth')->group(function (): void {
     Route::patch('/admission-follow-ups/{followUp}/complete', [AdmissionFollowUpController::class, 'complete'])->name('admissions.follow-ups.complete');
 
     Route::resource('users', UserController::class)->only(['index', 'show', 'edit', 'update', 'destroy']);
-    
+
     Route::get('/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('roles.index');
     Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
     Route::put('/roles/{role}/permissions', [RoleController::class, 'update'])->name('roles.permissions.update');
@@ -242,6 +222,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/permissions', [PermissionController::class, 'index'])->middleware('can:permissions.view')->name('permissions.index');
     Route::post('/permissions', [PermissionController::class, 'store'])->name('permissions.store');
     Route::delete('/permissions/{permission}', [PermissionController::class, 'destroy'])->middleware('can:permissions.delete')->name('permissions.destroy');
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])
+        ->middleware('can:audit_logs.view')
+        ->name('audit-logs.index');
 
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -250,19 +233,19 @@ Route::middleware('auth')->group(function (): void {
 
 Route::prefix('supplies')->name('supplies.')->group(function (): void {
     Route::get('/', [SuppliesDashboardController::class, 'index'])->name('dashboard');
- 
+
     // Inventory items and their stock
     Route::resource('items', InventoryItemController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update'])->parameters(['items' => 'item']);
     Route::get('items/{item}/adjust', [InventoryItemController::class, 'adjust'])->name('items.adjust');
     Route::post('items/{item}/adjust', [InventoryItemController::class, 'storeAdjustment'])->name('items.adjust.store');
     Route::get('stock-movements', [StockMovementController::class, 'index'])->name('movements.index');
     Route::resource('categories', CategoryController::class)->only(['index', 'store', 'update', 'destroy'])->parameters(['categories' => 'category']);
- 
+
     // Suppliers and stock purchases
     Route::resource('suppliers', SupplierController::class)->except('destroy')->parameters(['suppliers' => 'supplier']);
     Route::resource('purchases', PurchaseController::class)->only(['index', 'create', 'store', 'show'])->parameters(['purchases' => 'purchase']);
     Route::post('purchases/{purchase}/reverse', [PurchaseController::class, 'reverse'])->name('purchases.reverse');
- 
+
     // Student sales
     Route::get('students/search', [StudentSupplyController::class, 'search'])->name('students.search');
     Route::get('students/{student}', [StudentSupplyController::class, 'show'])->name('students.show');
@@ -272,12 +255,12 @@ Route::prefix('supplies')->name('supplies.')->group(function (): void {
     Route::post('sales/{sale}/return', [SaleController::class, 'returnItems'])->name('sales.return');
     Route::post('sales/{sale}/cancel', [SaleController::class, 'cancel'])->name('sales.cancel');
     Route::post('sales/{sale}/items/{saleItem}/deliver', [SaleController::class, 'deliver'])->scopeBindings()->name('sales.items.deliver');
- 
+
     // Class requirements
     Route::resource('requirements', RequirementController::class)->except('show')->parameters(['requirements' => 'requirement']);
     Route::post('requirements/{requirement}/external', [RequirementController::class, 'markExternal'])->name('requirements.external');
     Route::delete('requirements/{requirement}/external', [RequirementController::class, 'unmarkExternal'])->name('requirements.external.remove');
- 
+
     // Reports
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');

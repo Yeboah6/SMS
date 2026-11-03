@@ -12,7 +12,6 @@ use App\Models\StudentSupplySaleItem;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /** What each class should have, and how far each student has got. Buying from the school is never assumed. */
@@ -157,6 +156,7 @@ class SupplyRequirementService
                 'isRequired' => $requirement->is_required,
                 'termId' => $requirement->term_id,
                 'termName' => $requirement->term?->name,
+                'notes' => $requirement->notes,
             ])->all(),
             'students' => $students,
             'summary' => $summary,

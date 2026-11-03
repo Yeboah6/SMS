@@ -163,6 +163,34 @@ test('principals can create a period for an assigned subject and teacher', funct
     ]);
 });
 
+test('class filters use the section class column on timetable pages', function () {
+    $scenario = createTimetableScenario();
+    createTimetableSlot([
+        'academic_year_id' => $scenario['year']->id,
+        'teacher_subject_assignment_id' => $scenario['mathAssignment']->id,
+    ], $scenario['principal']);
+
+    $this->actingAs($scenario['principal'])
+        ->get(route('timetable.index', [
+            'academic_year_id' => $scenario['year']->id,
+            'class_id' => $scenario['section']->class_id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('selectedClassId', $scenario['section']->class_id)
+            ->has('slots.data', 1));
+
+    $this->actingAs($scenario['principal'])
+        ->get(route('timetable.create', [
+            'academic_year_id' => $scenario['year']->id,
+            'class_id' => $scenario['section']->class_id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Timetable/Create')
+            ->has('assignments', 3));
+});
+
 test('the same section cannot receive overlapping periods for different subjects', function () {
     $scenario = createTimetableScenario();
     createTimetableSlot([

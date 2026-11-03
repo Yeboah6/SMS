@@ -77,7 +77,7 @@ export default function StaffForm({ member = null, roles, departments, designati
                     ? 'Leave the password blank to keep the current one. The Teacher role allows class and subject assignments.'
                     : isEditing
                         ? 'Saving will create a sign-in account with an auto-generated password. It is shown once after saving.'
-                        : 'A sign-in account is created with this email and role. A random password is generated and shown once after creation.'}
+                        : 'A sign-in account is created with this email and role. A secure password setup link will be emailed so the staff member can choose a password.'}
             </p>
 
             <Field label="Phone" error={form.errors.phone}>

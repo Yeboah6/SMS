@@ -15,9 +15,11 @@ use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\StudentActivity;
 use App\Models\User;
+use App\Services\GuardianAccountService;
 use App\Services\StudentProfileService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -77,19 +79,27 @@ class StudentController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         $this->authorize('create', Student::class);
-    
-        return Inertia::render('Students/Create');
+
+        return Inertia::render('Students/Create', [
+            'canManageGuardianAccounts' => $request->user()->can('guardians.manage_accounts'),
+        ]);
     }
 
-    public function store(StoreStudentRequest $request, StudentProfileService $service): RedirectResponse
-    {
+    public function store(
+        StoreStudentRequest $request,
+        StudentProfileService $service,
+        GuardianAccountService $guardianAccounts,
+    ): RedirectResponse {
         $data = $request->validated();
+        $inviteParentAccounts = $request->boolean('invite_parent_accounts');
+        unset($data['invite_parent_accounts']);
+
         $generated = blank($data['admission_number'] ?? null);
         $data['admission_number'] = $generated ? null : $data['admission_number'];
-    
+
         for ($attempt = 1; ; $attempt++) {
             try {
                 $student = $service->create($data, $request->user());
@@ -100,8 +110,39 @@ class StudentController extends Controller
                 }
             }
         }
-    
-        return redirect()->route('students.show', $student)->with('status', "Student profile {$student->admission_number} created.");
+
+        $status = "Student profile {$student->admission_number} created.";
+        $invitationFailures = [];
+
+        if ($inviteParentAccounts) {
+            $invitedCount = 0;
+
+            foreach ($student->guardians()->whereNotNull('email')->get() as $guardian) {
+                try {
+                    $guardianAccounts->invite($guardian);
+                    $invitedCount++;
+                } catch (ValidationException $exception) {
+                    $messages = collect($exception->errors())->flatten()->implode(' ');
+                    $invitationFailures[] = "{$guardian->name}: {$messages}";
+                }
+            }
+
+            if ($invitedCount > 0) {
+                $status .= " Password setup invitations sent to {$invitedCount} guardian(s).";
+            } elseif ($invitationFailures === []) {
+                $status .= ' No guardian email addresses were provided, so no invitations were sent.';
+            } else {
+                $status .= ' Parent portal invitations could not be sent.';
+            }
+        }
+
+        $response = redirect()->route('students.show', $student)->with('status', $status);
+
+        if ($invitationFailures !== []) {
+            $response->withErrors(['guardian_invitation' => implode(' ', $invitationFailures)]);
+        }
+
+        return $response;
     }
 
     public function show(Request $request, Student $student): Response
@@ -516,9 +557,9 @@ class StudentController extends Controller
     {
         $student = Student::query()->visibleTo($request->user())->findOrFail($student->getKey());
         $this->authorize('delete', $student);
-    
+
         $service->delete($student, $request->user());
-    
+
         return redirect()->route('students.index')->with('status', 'Student profile deleted.');
     }
 
@@ -526,27 +567,29 @@ class StudentController extends Controller
     {
         $this->authorize('export', Student::class);
 
+        $activeYearId = AcademicYear::active()->value('id');
         $search = $request->string('search')->trim()->toString();
-
-        $studentName = fn (Student $student): string => implode(' ', array_filter([
-            $student->first_name,
-            $student->middle_name,
-            $student->last_name,
-        ]));
-
         $students = Student::query()
-            ->with(['guardians', 'enrolment'])
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('studentName', 'like', "%{$search}%")
-                      ->orWhere('admission_number', 'like', "%{$search}%")
-                      ->orWhereHas('guardians', fn ($g) => $g->where('name', 'like', "%{$search}%"));
-                });
-            })
-            ->orderBy('studentName')
-            ->cursor();
+            ->visibleTo($request->user())
+            ->with([
+                'guardians',
+                'enrolments' => fn ($query) => $query
+                    ->when($activeYearId, fn ($query) => $query->where('academic_year_id', $activeYearId))
+                    ->when(! $activeYearId, fn ($query) => $query->whereRaw('1 = 0'))
+                    ->with(['schoolClass:id,name', 'section:id,class_id,name']),
+            ])
+            ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
+                ->where('admission_number', 'like', "%{$search}%")
+                ->orWhere('first_name', 'like', "%{$search}%")
+                ->orWhere('middle_name', 'like', "%{$search}%")
+                ->orWhere('last_name', 'like', "%{$search}%")
+                ->orWhereHas('guardians', fn ($query) => $query->where('name', 'like', "%{$search}%"))))
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->orderBy('middle_name')
+            ->lazy();
 
-        $filename = 'students-' . now()->format('Y-m-d-His') . '.csv';
+        $filename = 'students-'.now()->format('Y-m-d-His').'.csv';
 
         return response()->streamDownload(function () use ($students) {
             $handle = fopen('php://output', 'w');
@@ -557,21 +600,22 @@ class StudentController extends Controller
             fputcsv($handle, [
                 'Admission No.', 'Name', 'Guardian', 'Guardian Phone',
                 'Class', 'Section', 'Admission Date', 'Status',
-            ]);
+            ], ',', '"', '', "\n");
 
             foreach ($students as $student) {
                 $guardian = $student->guardians->first();
+                $enrolment = $student->enrolments->first();
 
                 fputcsv($handle, [
-                    $student->admission_number,
-                    $this->studentName($student),
-                    $guardian?->name,
-                    $guardian?->phone,
-                    $student->class,
-                    $student->section,
-                    $student->admission_date,
-                    $student->status,
-                ]);
+                    $this->safeCsvCell($student->admission_number),
+                    $this->safeCsvCell($this->studentName($student)),
+                    $this->safeCsvCell($guardian?->name ?? ''),
+                    $this->safeCsvCell($guardian?->phone ?? ''),
+                    $this->safeCsvCell($enrolment?->schoolClass?->name ?? ''),
+                    $this->safeCsvCell($enrolment?->section?->name ?? ''),
+                    $student->admission_date?->toDateString() ?? '',
+                    $this->safeCsvCell($student->status),
+                ], ',', '"', '', "\n");
             }
 
             fclose($handle);
@@ -587,5 +631,12 @@ class StudentController extends Controller
             $student->middle_name,
             $student->last_name,
         ]));
+    }
+
+    private function safeCsvCell(string $value): string
+    {
+        return preg_match('/^[\x00-\x20]*[=+\-@]/', $value) === 1
+            ? "'".$value
+            : $value;
     }
 }

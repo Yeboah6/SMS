@@ -27,7 +27,7 @@ class HandleInertiaRequests extends Middleware
                 ? Storage::disk('public')->url($schoolSettings->logo_path)
                 : null,
             'feeSettings' => array_replace(
-                ['currency_code' => 'USD', 'default_due_days' => 30],
+                ['currency_code' => 'GHS', 'default_due_days' => 30],
                 $schoolSettings?->fee_settings ?? [],
             ),
             'auth' => [

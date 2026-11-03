@@ -20,7 +20,7 @@ const GENDERS = [
 ];
 
 /** Shared by Students/Create (no `student`) and Students/Edit (pass `student`). */
-export default function StudentForm({ student = null }) {
+export default function StudentForm({ student = null, canManageGuardianAccounts = false }) {
     const form = useForm({
         admission_number: student?.admissionNumber || '',
         first_name: student?.firstName || '',
@@ -35,6 +35,7 @@ export default function StudentForm({ student = null }) {
         admission_date: student?.admissionDate || '',
         status: student?.status || 'active',
         guardians: student?.guardians?.length ? student.guardians : [{ ...newGuardian(), is_primary: true }],
+        invite_parent_accounts: false,
     });
 
     function submit(event) {
@@ -185,6 +186,25 @@ export default function StudentForm({ student = null }) {
                     ))}
                 </div>
             </section>
+
+            {!student && canManageGuardianAccounts && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                    <label className="flex items-start gap-3">
+                        <input
+                            type="checkbox"
+                            checked={form.data.invite_parent_accounts}
+                            onChange={(event) => form.setData('invite_parent_accounts', event.target.checked)}
+                            className="mt-1 size-4 rounded border-slate-300 text-teal-700 focus:ring-teal-700"
+                        />
+                        <span>
+                            <span className="block text-sm font-semibold text-slate-900">Create parent portal accounts</span>
+                            <span className="mt-1 block text-sm text-slate-500">
+                                Email password setup links to all guardians with email addresses. No passwords will be shared with staff.
+                            </span>
+                        </span>
+                    </label>
+                </section>
+            )}
 
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <Link href={student ? `/students/${student.id}` : '/students'} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</Link>

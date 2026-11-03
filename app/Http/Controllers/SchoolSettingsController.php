@@ -54,7 +54,18 @@ class SchoolSettingsController extends Controller
 
     public function notifications(Request $request, SchoolSettingsService $service): Response|RedirectResponse
     {
-        return $this->editPage($request, $service, 'Settings/Notifications');
+        abort_unless($request->user()->can('settings.update'), 403);
+
+        $settings = $this->current();
+
+        if ($settings === null) {
+            return to_route('settings.school')->with('status', 'Save the school profile first.');
+        }
+
+        return Inertia::render('Settings/Notifications', [
+            'settings' => $this->payload($settings, $service),
+            'smsGatewayConfigured' => filled(config('services.sms_gateway.url')),
+        ]);
     }
 
     public function updateSchool(UpdateSchoolProfileRequest $request, SchoolSettingsService $service): RedirectResponse
