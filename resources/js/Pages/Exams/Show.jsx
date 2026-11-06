@@ -24,6 +24,9 @@ export default function ExamsShow({ exam, subjects, can }) {
                 <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
                     {can.update && <Link href={`/exams/${exam.id}/edit`} className="text-teal-800 hover:text-teal-950">Edit examination</Link>}
                     {can.delete && <button type="button" onClick={deleteExam} className="text-rose-700 hover:text-rose-900">Delete</button>}
+                    {exam.status === 'published' && can.viewMarks && (
+                        <Link href={`/exams/${exam.id}/report-cards`} className="rounded-lg border border-teal-700 px-3 py-2 text-teal-800 hover:bg-teal-50">Report cards</Link>
+                    )}
                     {can.publish && <button type="button" onClick={() => post('publish')} className="rounded-lg bg-teal-700 px-3 py-2 text-white hover:bg-teal-800">Publish results</button>}
                     {can.reopen && <button type="button" onClick={() => post('reopen')} className="rounded-lg border border-amber-300 px-3 py-2 text-amber-800 hover:bg-amber-50">Reopen for correction</button>}
                 </div>

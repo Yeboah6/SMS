@@ -17,8 +17,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 class ExamController extends Controller
-{
-    use ManagesExamAccess;
+{    use ManagesExamAccess;
 
     public function index(Request $request): Response|RedirectResponse
     {

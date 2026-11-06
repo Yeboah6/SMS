@@ -17,6 +17,14 @@ export default function ResultsIndex({ mode, results, academicYears, selectedAca
         return `/results/${result.id}${selectedStudentId ? `?student_id=${selectedStudentId}` : ''}`;
     }
 
+    function reportCardHref(result) {
+        return `/results/${result.id}/report-card${selectedStudentId ? `?student_id=${selectedStudentId}` : ''}`;
+    }
+    
+    function downloadHref(result) {
+        return `/results/${result.id}/report-card/download${selectedStudentId ? `?student_id=${selectedStudentId}` : ''}`;
+    }
+
     return (
         <AppLayout title={title} description={mode === 'parent' ? 'Review your linked children’s published results.' : 'Review your published examination results.'}>
             <Head title={title} />
@@ -117,7 +125,16 @@ export default function ResultsIndex({ mode, results, academicYears, selectedAca
                 <Empty title="No published results found" detail="Results will appear here after the school publishes an examination." />
             ) : (
                 <div className="grid gap-5">
-                    {results.data.map((result) => <ResultCard key={result.id} result={result} detailHref={detailHref(result)} />)}
+                    {results.data.map((result) => (
+                        <div key={result.id}>
+                            <ResultCard result={result} detailHref={detailHref(result)} />
+                            <div className="mt-2 flex flex-wrap items-center justify-end gap-3 text-sm font-semibold">
+                                <Link href={detailHref(result)} className="text-teal-800 hover:text-teal-950">Details</Link>
+                                <Link href={reportCardHref(result)} className="text-teal-800 hover:text-teal-950">Report card</Link>
+                                <a href={downloadHref(result)} className="rounded-lg bg-teal-700 px-3 py-2 text-white hover:bg-teal-800">Download PDF</a>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 
@@ -126,7 +143,7 @@ export default function ResultsIndex({ mode, results, academicYears, selectedAca
                     {results.links.map((link, index) => (
                         <Link
                             key={`${link.label}-${index}`}
-                            href={link.url || '#'}
+                            href={link.url || '#'} 
                             preserveScroll
                             className={`rounded-lg px-3 py-2 text-sm ${link.active ? 'bg-teal-700 text-white' : 'border border-slate-200 bg-white text-slate-700'} ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
                         >

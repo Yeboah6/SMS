@@ -8,10 +8,13 @@ use App\Models\ExamMark;
 use App\Models\ExamSubject;
 use App\Models\HomeworkAssignment;
 use App\Models\HomeworkSubmission;
+use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\SchoolClass;
 use App\Models\Section;
 use App\Models\Student;
+use App\Models\StudentSupplySale;
+use App\Models\StudentSupplySaleItem;
 use App\Models\Subject;
 use App\Models\User;
 use App\Notifications\GuardianPortalInvitation;
@@ -23,6 +26,7 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
 
@@ -92,6 +96,7 @@ function createPhaseFiveAcademicPlacement(Student $student): array
 test('student profiles expose paginated academic records and only published examination results', function () {
     $principal = createPhaseFivePrincipal();
     $principal->assignRole('Accountant');
+    $principal->givePermissionTo(Permission::findOrCreate('supplies.sales.view', 'web'));
     $student = createPhaseFiveStudent('PHASE5-PROFILE-001');
     [$year, $schoolClass, $section, $subject] = createPhaseFiveAcademicPlacement($student);
 
@@ -191,6 +196,44 @@ test('student profiles expose paginated academic records and only published exam
         'content' => 'Completed reading.',
         'submitted_at' => now(),
     ]);
+    $book = InventoryItem::factory()->create(['name' => 'Mathematics Workbook']);
+    $sale = StudentSupplySale::query()->create([
+        'sale_number' => 'SUP-PROFILE-001',
+        'student_id' => $student->id,
+        'academic_year_id' => $year->id,
+        'class_id' => $schoolClass->id,
+        'subtotal' => 80,
+        'discount_amount' => 0,
+        'total_amount' => 80,
+        'paid_amount' => 30,
+        'status' => 'completed',
+        'payment_status' => 'partially_paid',
+        'sold_by' => $principal->id,
+        'sold_at' => now(),
+    ]);
+    StudentSupplySaleItem::query()->create([
+        'sale_id' => $sale->id,
+        'item_id' => $book->id,
+        'item_name' => 'Mathematics Workbook',
+        'sku' => $book->sku,
+        'quantity' => 2,
+        'unit_price' => 40,
+        'unit_cost' => 25,
+        'line_total' => 80,
+    ]);
+    $otherStudent = createPhaseFiveStudent('PHASE5-PROFILE-OTHER');
+    StudentSupplySale::query()->create([
+        'sale_number' => 'SUP-PROFILE-OTHER',
+        'student_id' => $otherStudent->id,
+        'academic_year_id' => $year->id,
+        'subtotal' => 20,
+        'discount_amount' => 0,
+        'total_amount' => 20,
+        'status' => 'completed',
+        'payment_status' => 'unpaid',
+        'sold_by' => $principal->id,
+        'sold_at' => now(),
+    ]);
 
     $this->actingAs($principal)->get(route('students.show', $student))
         ->assertOk()
@@ -204,7 +247,40 @@ test('student profiles expose paginated academic records and only published exam
             ->where('invoices.data.0.number', 'PHASE5-INV-001')
             ->where('canViewHomework', true)
             ->where('homeworkSubmissions.data.0.title', 'Reading assignment')
-            ->where('history.0.type', 'Homework'));
+            ->where('canViewSupplySales', true)
+            ->where('supplySales.total', 1)
+            ->where('supplySales.data.0.number', 'SUP-PROFILE-001')
+            ->where('supplySales.data.0.items.0.name', 'Mathematics Workbook')
+            ->where('supplySales.data.0.items.0.quantity', 2)
+            ->where('supplySales.data.0.balance', 50)
+            ->where('history', fn ($history): bool => collect($history)->contains(
+                fn (array $entry): bool => $entry['type'] === 'Book & supply purchase'
+                    && $entry['title'] === 'SUP-PROFILE-001',
+            )));
+});
+
+test('student profiles do not expose purchase records without the supplies sales permission', function () {
+    $principal = createPhaseFivePrincipal();
+    $student = createPhaseFiveStudent('PHASE5-PROFILE-PRIVATE');
+    [$year] = createPhaseFiveAcademicPlacement($student);
+    StudentSupplySale::query()->create([
+        'sale_number' => 'SUP-PROFILE-PRIVATE',
+        'student_id' => $student->id,
+        'academic_year_id' => $year->id,
+        'subtotal' => 20,
+        'discount_amount' => 0,
+        'total_amount' => 20,
+        'status' => 'completed',
+        'payment_status' => 'unpaid',
+        'sold_by' => $principal->id,
+        'sold_at' => now(),
+    ]);
+
+    $this->actingAs($principal)->get(route('students.show', $student))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('canViewSupplySales', false)
+            ->where('supplySales', null));
 });
 
 test('staff can explicitly link and unlink only an existing Parent account', function () {

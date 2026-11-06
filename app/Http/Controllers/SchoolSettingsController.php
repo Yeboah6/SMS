@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateNotificationSettingsRequest;
 use App\Http\Requests\UpdateSchoolProfileRequest;
 use App\Models\SchoolSetting;
 use App\Services\SchoolSettingsService;
+use App\Services\TwilioSmsGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -52,8 +53,11 @@ class SchoolSettingsController extends Controller
         return $this->editPage($request, $service, 'Settings/Fees');
     }
 
-    public function notifications(Request $request, SchoolSettingsService $service): Response|RedirectResponse
-    {
+    public function notifications(
+        Request $request,
+        SchoolSettingsService $service,
+        TwilioSmsGateway $twilio,
+    ): Response|RedirectResponse {
         abort_unless($request->user()->can('settings.update'), 403);
 
         $settings = $this->current();
@@ -64,7 +68,7 @@ class SchoolSettingsController extends Controller
 
         return Inertia::render('Settings/Notifications', [
             'settings' => $this->payload($settings, $service),
-            'smsGatewayConfigured' => filled(config('services.sms_gateway.url')),
+            'smsGatewayConfigured' => $twilio->isConfigured(),
         ]);
     }
 

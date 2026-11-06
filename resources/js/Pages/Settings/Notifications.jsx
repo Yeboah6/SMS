@@ -32,8 +32,8 @@ export default function SettingsNotifications({ settings, smsGatewayConfigured }
                     </div>
                     <p role="status" className={`mt-4 rounded-xl border px-4 py-3 text-sm ${smsGatewayConfigured ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
                         {smsGatewayConfigured
-                            ? 'SMS gateway configured. Delivery uses the server-side gateway credentials.'
-                            : 'SMS gateway not configured. Set SMS_GATEWAY_URL and optional SMS_GATEWAY_TOKEN, SMS_GATEWAY_SENDER, and SMS_GATEWAY_TIMEOUT in the server environment before enabling SMS.'}
+                            ? 'Twilio is configured. SMS delivery uses server-side credentials.'
+                            : 'Twilio is not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN, then set exactly one of TWILIO_FROM_NUMBER or TWILIO_MESSAGING_SERVICE_SID in the server environment before enabling SMS.'}
                     </p>
                 </section>
 

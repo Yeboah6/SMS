@@ -12,6 +12,7 @@ use App\Services\SupplyRequirementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use App\Services\ReportCardService;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -97,6 +98,29 @@ class ResultController extends Controller
         ]);
     }
 
+    public function reportCard(Request $request, Exam $exam, ReportCardService $reports): Response
+    {
+        [$mode, $student, $header, $card] = $this->reportCardData($request, $exam, $reports);
+    
+        return Inertia::render('Results/ReportCard', [
+            'mode' => $mode,
+            'studentId' => $mode === 'parent' ? $student->id : null,
+            'exam' => $header,
+            'card' => $card,
+        ]);
+    }
+
+    public function downloadReportCard(Request $request, Exam $exam, ReportCardService $reports): HttpResponse
+    {
+        [, $student, $header, $card] = $this->reportCardData($request, $exam, $reports);
+    
+        return Pdf::loadView('pdf.report-card', [
+            'exam' => $header,
+            'card' => $card,
+            'school' => $reports->branding(embedLogo: true),
+        ])->download("report-card-{$student->id}-{$exam->id}.pdf");
+    }
+
     /** @return array{0: string, 1: Collection, 2: ?int, 3: ?Student} */
     private function portalContext(Request $request): array
     {
@@ -119,6 +143,18 @@ class ResultController extends Controller
         abort_if($isStudent && ! $student, 404);
 
         return [$isStudent ? 'student' : 'parent', $students, $selectedStudentId, $student];
+    }
+
+    private function reportCardData(Request $request, Exam $exam, ReportCardService $reports): array
+    {
+        [$mode, , , $student] = $this->portalContext($request);
+        abort_unless($student, 404);
+    
+        $published = $this->resultsQuery($student, null)->whereKey($exam->id)->firstOrFail();
+        $card = $reports->forExam($published, $student->id)->first();
+        abort_unless($card, 404);
+    
+        return [$mode, $student, $reports->header($published), $card];
     }
 
     private function studentName(Student $student): string

@@ -72,7 +72,12 @@ function notificationSettingsPayload(array $overrides = []): array
 
 test('super admins can view defaults and save school, grading, fee and notice settings', function () {
     $admin = createSchoolSettingsAdmin();
-    config(['services.sms_gateway.url' => null]);
+    config([
+        'services.twilio.account_sid' => null,
+        'services.twilio.auth_token' => null,
+        'services.twilio.from_number' => null,
+        'services.twilio.messaging_service_sid' => null,
+    ]);
 
     $this->actingAs($admin)->get(route('settings.index'))
         ->assertOk()
@@ -190,14 +195,33 @@ test('SMS notice settings require a configured gateway and supported template pl
         ],
     ]);
 
-    config(['services.sms_gateway.url' => null]);
+    config([
+        'services.twilio.account_sid' => null,
+        'services.twilio.auth_token' => null,
+        'services.twilio.from_number' => null,
+        'services.twilio.messaging_service_sid' => null,
+    ]);
 
     $this->actingAs($admin)->put(route('settings.notifications.update'), $payload)
         ->assertSessionHasErrors('notification_settings.sms_notices');
 
     expect($settings->fresh()->notification_settings['sms_notices'])->toBeFalse();
 
-    config(['services.sms_gateway.url' => 'https://sms-gateway.example.test/messages']);
+    config([
+        'services.twilio.account_sid' => 'ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        'services.twilio.auth_token' => 'test-auth-token',
+        'services.twilio.from_number' => '+15005550006',
+        'services.twilio.messaging_service_sid' => null,
+    ]);
+
+    $this->actingAs($admin)->get(route('settings.notifications'))
+        ->assertInertia(fn ($page) => $page->where('smsGatewayConfigured', true));
+
+    config(['services.twilio.messaging_service_sid' => 'MGbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb']);
+    $this->actingAs($admin)->put(route('settings.notifications.update'), $payload)
+        ->assertSessionHasErrors('notification_settings.sms_notices');
+
+    config(['services.twilio.messaging_service_sid' => null]);
     $payload['notification_settings']['notice_sms_body'] = '{unsupported}';
 
     $this->actingAs($admin)->put(route('settings.notifications.update'), $payload)

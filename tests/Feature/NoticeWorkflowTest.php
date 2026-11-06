@@ -257,9 +257,10 @@ test('notice email uses the configured subject and body placeholders', function 
 
 test('notice SMS uses the editable template and sends to a student linked guardian', function () {
     config([
-        'services.sms_gateway.url' => 'https://sms-gateway.example.test/messages',
-        'services.sms_gateway.token' => 'test-gateway-token',
-        'services.sms_gateway.sender' => 'Northstar',
+        'services.twilio.account_sid' => 'ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        'services.twilio.auth_token' => 'test-auth-token',
+        'services.twilio.from_number' => '+15005550006',
+        'services.twilio.messaging_service_sid' => null,
     ]);
 
     $studentAccount = User::factory()->create();
@@ -290,7 +291,7 @@ test('notice SMS uses the editable template and sends to a student linked guardi
 
     Http::preventStrayRequests();
     Http::fake([
-        'sms-gateway.example.test/messages' => Http::response(['accepted' => true], 202),
+        'api.twilio.com/2010-04-01/Accounts/ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/Messages.json' => Http::response(['sid' => 'SMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'], 201),
     ]);
 
     Notification::sendNow($studentAccount, new NoticePublishedNotification(
@@ -300,18 +301,57 @@ test('notice SMS uses the editable template and sends to a student linked guardi
     ));
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
-        && $request->url() === 'https://sms-gateway.example.test/messages'
-        && $request->hasHeader('Authorization', 'Bearer test-gateway-token')
-        && $request->hasHeader('Idempotency-Key')
+        && $request->url() === 'https://api.twilio.com/2010-04-01/Accounts/ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/Messages.json'
+        && $request->hasHeader('Authorization', 'Basic '.base64_encode(config('services.twilio.account_sid').':'.config('services.twilio.auth_token')))
+        && ! $request->hasHeader('Idempotency-Key')
         && $request->data() === [
-            'recipient' => '+233201234567',
-            'message' => 'Exam timetable: The timetable is ready. (students) '.route('notices.show', $notice),
-            'sender' => 'Northstar',
+            'To' => '+233201234567',
+            'Body' => 'Exam timetable: The timetable is ready. (students) '.route('notices.show', $notice),
+            'From' => '+15005550006',
         ]);
 });
 
-test('notice SMS delivery surfaces gateway errors for queue retry', function () {
-    config(['services.sms_gateway.url' => 'https://sms-gateway.example.test/messages']);
+test('notice SMS can send through a Twilio messaging service', function () {
+    config([
+        'services.twilio.account_sid' => 'ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        'services.twilio.auth_token' => 'test-auth-token',
+        'services.twilio.from_number' => null,
+        'services.twilio.messaging_service_sid' => 'MGbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    ]);
+
+    $user = User::factory()->create();
+    $user->assignRole('Teacher');
+    Staff::query()->create([
+        'user_id' => $user->id,
+        'staff_number' => 'SMS-STAFF-MSG',
+        'name' => $user->name,
+        'phone' => '+15550101010',
+        'is_teacher' => true,
+        'status' => 'active',
+    ]);
+    $notice = Notice::factory()->published()->create();
+
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.twilio.com/2010-04-01/Accounts/ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/Messages.json' => Http::response(['sid' => 'SMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'], 201),
+    ]);
+
+    Notification::sendNow($user, new NoticePublishedNotification($notice, [SmsChannel::class]));
+
+    Http::assertSent(fn (Request $request): bool => $request->data() === [
+        'To' => '+15550101010',
+        'Body' => $notice->title.': '.$notice->body.' '.route('notices.show', $notice),
+        'MessagingServiceSid' => 'MGbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    ]);
+});
+
+test('notice SMS delivery surfaces Twilio errors for queue retry', function () {
+    config([
+        'services.twilio.account_sid' => 'ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        'services.twilio.auth_token' => 'test-auth-token',
+        'services.twilio.from_number' => '+15005550006',
+        'services.twilio.messaging_service_sid' => null,
+    ]);
     $user = User::factory()->create();
     $user->assignRole('Teacher');
     Staff::query()->create([
@@ -325,7 +365,7 @@ test('notice SMS delivery surfaces gateway errors for queue retry', function () 
     $notice = Notice::factory()->published()->create();
     Http::preventStrayRequests();
     Http::fake([
-        'sms-gateway.example.test/messages' => Http::response(['error' => 'unavailable'], 503),
+        'api.twilio.com/2010-04-01/Accounts/ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/Messages.json' => Http::response(['message' => 'unavailable'], 503),
     ]);
 
     expect(fn () => Notification::sendNow(

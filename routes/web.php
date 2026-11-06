@@ -17,6 +17,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\ExamController;
 use App\Http\Controllers\ExamMarkController;
+use App\Http\Controllers\ReportCardController;
 use App\Http\Controllers\FeeController;
 use App\Http\Controllers\FeeHeadController;
 use App\Http\Controllers\FeeStructureController;
@@ -136,6 +137,10 @@ Route::middleware('auth')->group(function (): void {
     Route::resource('exams', ExamController::class);
     Route::post('/exams/{exam}/publish', [ExamController::class, 'publish'])->name('exams.publish');
     Route::post('/exams/{exam}/reopen', [ExamController::class, 'reopen'])->name('exams.reopen');
+    Route::get('/exams/{exam}/report-cards', [ReportCardController::class, 'index'])->name('exams.report-cards.index');
+    Route::get('/exams/{exam}/report-cards/{student}', [ReportCardController::class, 'show'])->name('exams.report-cards.show');
+    Route::post('/exams/{exam}/report-cards/class-scores', [ReportCardController::class, 'saveClassScores'])->name('exams.report-cards.class-scores');
+    Route::post('/exams/{exam}/report-cards/save', [ReportCardController::class, 'save'])->name('exams.report-cards.save');
     // Mark entry for one exam subject
     Route::get('/exams/{exam}/subjects/{examSubject}/marks', [ExamMarkController::class, 'edit'])->name('exams.marks.edit');
     Route::post('/exams/{exam}/subjects/{examSubject}/marks', [ExamMarkController::class, 'store'])->name('exams.marks.store');
@@ -143,6 +148,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/results', [ResultController::class, 'index'])->name('results.index');
     Route::get('/results/students/{student}/book-requirements/download', [ResultController::class, 'downloadBookRequirements'])->name('results.book-requirements.download');
     Route::get('/results/{exam}', [ResultController::class, 'show'])->name('results.show');
+    // Parents / students (portal) — next to the other /results routes
+    Route::get('/results/{exam}/report-card', [ResultController::class, 'reportCard'])->name('results.report-card.show');
+    Route::get('/results/{exam}/report-card/download', [ResultController::class, 'downloadReportCard'])->name('results.report-card.download');
 
     Route::get('/fees', [FeeController::class, 'index'])->name('fees.index');
     Route::resource('fee-heads', FeeHeadController::class)->parameters(['fee-heads' => 'feeHead']);

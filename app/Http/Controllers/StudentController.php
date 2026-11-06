@@ -14,6 +14,7 @@ use App\Models\Invoice;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\StudentActivity;
+use App\Models\StudentSupplySale;
 use App\Models\User;
 use App\Services\GuardianAccountService;
 use App\Services\StudentProfileService;
@@ -157,6 +158,7 @@ class StudentController extends Controller
         $canViewResults = $user->can('results.view') || $user->can('portal.results.view');
         $canViewFees = $user->can('fees.view') || $user->can('portal.fees.view');
         $canViewHomework = $user->can('homework.view') || $user->can('portal.homework.view');
+        $canViewSupplySales = $user->can('supplies.sales.view');
         $student->load([
             'guardians' => fn ($query) => $query->with('user:id,name')->orderByPivot('is_primary', 'desc')->orderBy('name'),
             'enrolments.academicYear',
@@ -253,6 +255,40 @@ class StudentController extends Controller
                     'feedback' => $submission->feedback,
                 ])
             : null;
+        $supplySales = $canViewSupplySales
+            ? $student->supplySales()
+                ->with([
+                    'academicYear:id,name',
+                    'schoolClass:id,name',
+                    'items:id,sale_id,item_name,quantity,returned_quantity,unit_price,line_total',
+                ])
+                ->orderByDesc('sold_at')
+                ->orderByDesc('id')
+                ->paginate(10, ['*'], 'supply_sales_page')
+                ->withQueryString()
+                ->through(fn (StudentSupplySale $sale): array => [
+                    'id' => $sale->id,
+                    'number' => $sale->sale_number,
+                    'date' => $sale->sold_at->toDateTimeString(),
+                    'academicYear' => $sale->academicYear->name,
+                    'class' => $sale->schoolClass?->name,
+                    'status' => $sale->status,
+                    'paymentStatus' => $sale->payment_status,
+                    'total' => $sale->total_amount,
+                    'returned' => $sale->returned_amount,
+                    'paid' => $sale->paid_amount,
+                    'refunded' => $sale->refunded_amount,
+                    'balance' => $sale->balance(),
+                    'showUrl' => route('supplies.sales.show', $sale),
+                    'items' => $sale->items->map(fn ($item): array => [
+                        'name' => $item->item_name,
+                        'quantity' => $item->quantity,
+                        'returnedQuantity' => $item->returned_quantity,
+                        'unitPrice' => $item->unit_price,
+                        'total' => $item->line_total,
+                    ])->values(),
+                ])
+            : null;
         $eligibleParentAccounts = $canManageGuardianAccounts
             ? User::query()
                 ->whereHas('roles', fn ($query) => $query->where('name', 'Parent'))
@@ -343,6 +379,19 @@ class StudentController extends Controller
                     'title' => $submission->assignment->title,
                     'detail' => $submission->assignment->subject->name.' · '
                         .($submission->score ?? 'Not graded'),
+                ]) : collect())
+            ->merge($canViewSupplySales ? $student->supplySales()
+                ->with('items:id,sale_id,item_name,quantity')
+                ->orderByDesc('sold_at')
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get()
+                ->map(fn (StudentSupplySale $sale): array => [
+                    'date' => $sale->sold_at->toDateString(),
+                    'type' => 'Book & supply purchase',
+                    'title' => $sale->sale_number,
+                    'detail' => $sale->items->map(fn ($item): string => "{$item->quantity} × {$item->item_name}")->join(', ')
+                        .' · '.$sale->payment_status,
                 ]) : collect())
             ->sortByDesc('date')
             ->values()
@@ -469,6 +518,8 @@ class StudentController extends Controller
             'invoices' => $invoices,
             'canViewHomework' => $canViewHomework,
             'homeworkSubmissions' => $homeworkSubmissions,
+            'canViewSupplySales' => $canViewSupplySales,
+            'supplySales' => $supplySales,
             'history' => $history,
             'academicYears' => $years->map(fn (AcademicYear $year): array => [
                 'id' => $year->id,

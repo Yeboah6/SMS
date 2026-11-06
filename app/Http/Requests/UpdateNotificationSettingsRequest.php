@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\TwilioSmsGateway;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -34,11 +35,11 @@ class UpdateNotificationSettingsRequest extends FormRequest
             function (Validator $validator): void {
                 if (
                     $this->boolean('notification_settings.sms_notices')
-                    && blank(config('services.sms_gateway.url'))
+                    && ! app(TwilioSmsGateway::class)->isConfigured()
                 ) {
                     $validator->errors()->add(
                         'notification_settings.sms_notices',
-                        'Configure the SMS gateway URL in the server environment before enabling SMS notices.',
+                        'Configure valid Twilio credentials and exactly one Twilio sender in the server environment before enabling SMS notices.',
                     );
                 }
 

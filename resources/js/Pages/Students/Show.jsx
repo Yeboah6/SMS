@@ -4,7 +4,7 @@ import PageAlerts from '../../Components/Exams/PageAlerts';
 import AppLayout from '../../Layouts/AppLayout';
 import { Field, inputClass } from '../Auth/Login';
 
-export default function StudentShow({ student, canEdit, canDelete, canEnrol, canTransfer, transferEnrolmentId, transfers, canUploadDocuments, canViewNotes, canCreateNotes, canViewAuditHistory, auditEntries, academicYears, classes, today, canManageGuardianAccounts, eligibleParentAccounts, canViewAttendance, attendanceRecords, canViewResults, examMarks, canViewFees, invoices, canViewHomework, homeworkSubmissions, history }) {
+export default function StudentShow({ student, canEdit, canDelete, canEnrol, canTransfer, transferEnrolmentId, transfers, canUploadDocuments, canViewNotes, canCreateNotes, canViewAuditHistory, auditEntries, academicYears, classes, today, canManageGuardianAccounts, eligibleParentAccounts, canViewAttendance, attendanceRecords, canViewResults, examMarks, canViewFees, invoices, canViewHomework, homeworkSubmissions, canViewSupplySales, supplySales, history }) {
     // const { status } = usePage().props;
     const [activeTab, setActiveTab] = useState('overview');
     const enrolmentForm = useForm({
@@ -28,6 +28,7 @@ export default function StudentShow({ student, canEdit, canDelete, canEnrol, can
         ...(canViewResults ? [['results', 'Results']] : []),
         ...(canViewFees ? [['fees', 'Fees']] : []),
         ...(canViewHomework ? [['homework', 'Homework']] : []),
+        ...(canViewSupplySales ? [['purchases', 'Books & supplies']] : []),
         ['history', 'History'],
     ];
 
@@ -407,10 +408,52 @@ export default function StudentShow({ student, canEdit, canDelete, canEnrol, can
                 </section>
             )}
 
+            {activeTab === 'purchases' && canViewSupplySales && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                    <h2 className="font-semibold text-slate-900">Book & supply purchases</h2>
+                    <p className="mt-1 text-sm text-slate-500">Purchase records, returned items, payments, and outstanding balances.</p>
+                    {supplySales.data.length === 0 ? <EmptyMessage>No book or supply purchases found.</EmptyMessage> : (
+                        <div className="mt-4 grid gap-4">
+                            {supplySales.data.map((sale) => (
+                                <article key={sale.id} className="rounded-xl border border-slate-200 p-4">
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div>
+                                            <Link href={sale.showUrl} className="font-semibold text-teal-800 hover:text-teal-950">{sale.number}</Link>
+                                            <p className="mt-1 text-xs text-slate-500">{sale.date} · {sale.academicYear}{sale.class ? ` · ${sale.class}` : ''}</p>
+                                        </div>
+                                        <div className="text-right text-sm">
+                                            <p className="font-semibold text-slate-900">Total {Number(sale.total).toFixed(2)}</p>
+                                            <p className="mt-1 text-xs capitalize text-slate-500">{sale.status.replaceAll('_', ' ')} · {sale.paymentStatus.replaceAll('_', ' ')}</p>
+                                        </div>
+                                    </div>
+                                    <ul className="mt-4 grid gap-2 border-t border-slate-100 pt-3 text-sm sm:grid-cols-2">
+                                        {sale.items.map((item, index) => (
+                                            <li key={`${sale.id}-${index}`} className="flex flex-wrap justify-between gap-2 text-slate-700">
+                                                <span>{item.name} · {item.quantity} × {Number(item.unitPrice).toFixed(2)}{item.returnedQuantity > 0 && <span className="text-xs text-slate-500"> ({item.returnedQuantity} returned)</span>}</span>
+                                                <span className="font-medium">{Number(item.total).toFixed(2)}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-slate-100 pt-3 text-xs text-slate-600">
+                                        <span>Paid: {Number(sale.paid).toFixed(2)}</span>
+                                        {Number(sale.refunded) > 0 && <span>Refunded: {Number(sale.refunded).toFixed(2)}</span>}
+                                        {Number(sale.returned) > 0 && <span>Returned: {Number(sale.returned).toFixed(2)}</span>}
+                                        <span className={Number(sale.balance) > 0 ? 'font-semibold text-rose-700' : 'font-semibold text-emerald-700'}>
+                                            Balance: {Number(sale.balance).toFixed(2)}
+                                        </span>
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
+                    )}
+                    <Pagination links={supplySales.links} />
+                </section>
+            )}
+
             {activeTab === 'history' && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
                     <h2 className="font-semibold text-slate-900">Consolidated student history</h2>
-                    <p className="mt-1 text-sm text-slate-500">Academic, attendance, results, fees, homework, documents, and notes in date order.</p>
+                    <p className="mt-1 text-sm text-slate-500">Academic, attendance, results, fees, homework, purchases, documents, and notes in date order.</p>
                     {canViewAuditHistory && (
                         <div className="mt-5 border-b border-slate-100 pb-5">
                             <h3 className="font-medium text-slate-900">Audit ledger</h3>

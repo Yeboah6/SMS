@@ -106,6 +106,11 @@ class Student extends Model
         return $this->hasMany(StudentActivity::class);
     }
 
+    public function supplySales(): HasMany
+    {
+        return $this->hasMany(StudentSupplySale::class);
+    }
+
     public function promotions(): HasMany
     {
         return $this->hasMany(Promotion::class)->latest('id');

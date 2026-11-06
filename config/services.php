@@ -35,11 +35,12 @@ return [
         ],
     ],
 
-    'sms_gateway' => [
-        'url' => env('SMS_GATEWAY_URL'),
-        'token' => env('SMS_GATEWAY_TOKEN'),
-        'sender' => env('SMS_GATEWAY_SENDER'),
-        'timeout' => (int) env('SMS_GATEWAY_TIMEOUT', 10),
+    'twilio' => [
+        'account_sid' => env('TWILIO_ACCOUNT_SID'),
+        'auth_token' => env('TWILIO_AUTH_TOKEN'),
+        'from_number' => env('TWILIO_FROM_NUMBER'),
+        'messaging_service_sid' => env('TWILIO_MESSAGING_SERVICE_SID'),
+        'timeout' => (int) env('TWILIO_TIMEOUT', 10),
     ],
 
 ];

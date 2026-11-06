@@ -4,14 +4,14 @@ namespace App\Notifications\Channels;
 
 use App\Models\User;
 use App\Notifications\NoticePublishedNotification;
-use App\Services\GenericHttpSmsGateway;
+use App\Services\TwilioSmsGateway;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 class SmsChannel
 {
-    public function __construct(private GenericHttpSmsGateway $gateway) {}
+    public function __construct(private TwilioSmsGateway $gateway) {}
 
     public function send(object $notifiable, Notification $notification): void
     {
@@ -31,17 +31,7 @@ class SmsChannel
         }
 
         foreach ($recipients as $recipient) {
-            $idempotencyKey = hash('sha256', implode('|', [
-                $notification->notice->id,
-                $notifiable->id,
-                $recipient,
-            ]));
-
-            $this->gateway->send(
-                $recipient,
-                $notification->toSms($notifiable),
-                $idempotencyKey,
-            );
+            $this->gateway->send($recipient, $notification->toSms($notifiable));
         }
     }
 }
