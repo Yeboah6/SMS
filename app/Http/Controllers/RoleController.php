@@ -41,8 +41,9 @@ class RoleController extends Controller
                 ->with('permissions:id,name')
                 ->withCount('users')
                 ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Role $role): array => [
+                ->paginate(15)
+                ->withQueryString()
+                ->through(fn (Role $role): array => [
                     'id' => $role->id,
                     'name' => $role->name,
                     'userCount' => $role->users_count,

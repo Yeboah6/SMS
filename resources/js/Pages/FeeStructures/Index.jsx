@@ -5,11 +5,13 @@ import FeesNav from '../../Components/Fees/FeesNav';
 import YearSelect from '../../Components/Fees/YearSelect';
 import SpreadsheetImport from '../../Components/Fees/SpreadsheetImport';
 import { dateLabel, useMoney } from '../../lib/fees';
+import Pagination from '../../Components/Pagination';
 
 export default function FeeStructuresIndex({ academicYears = [], selectedAcademicYear = null, classes = [], can = {} }) {
     const money = useMoney();
+    const classItems = classes.data || [];
+    const unpriced = classItems.filter((schoolClass) => schoolClass.structures.length === 0).length;
     const yearId = selectedAcademicYear?.id;
-    const unpriced = classes.filter((schoolClass) => schoolClass.structures.length === 0).length;
 
     function deleteStructure(structure, className) {
         if (window.confirm(`Remove ${structure.feeHeadName} from ${className}? Existing invoices are not changed.`)) {
@@ -27,7 +29,7 @@ export default function FeeStructuresIndex({ academicYears = [], selectedAcademi
                 <div>
                     <h2 className="font-semibold text-slate-900">{selectedAcademicYear?.name || 'No academic year'}</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                        {selectedAcademicYear?.status === 'locked' ? 'This year is locked: structures are read-only.' : unpriced > 0 ? `${unpriced} of ${classes.length} classes have no fees yet. Invoices cannot be generated for them.` : 'Every class has fees set.'}
+                        {selectedAcademicYear?.status === 'locked' ? 'This year is locked: structures are read-only.' : unpriced > 0 ? `${unpriced} ${unpriced === 1 ? 'class' : 'classes'} on this page have no fees yet. Invoices cannot be generated for them.` : 'Every class on this page has fees set.'}
                     </p>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
@@ -37,11 +39,11 @@ export default function FeeStructuresIndex({ academicYears = [], selectedAcademi
                 </div>
             </section>
 
-            {classes.length === 0 ? (
+            {classItems.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-sm text-slate-500">This year has no classes yet. Create classes first.</p>
             ) : (
                 <div className="grid gap-4 xl:grid-cols-2">
-                    {classes.map((schoolClass) => (
+                    {classItems.map((schoolClass) => (
                         <article key={schoolClass.id} className="rounded-2xl border border-slate-200 bg-white p-5">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <h3 className="font-semibold text-slate-900">{schoolClass.name}</h3>
@@ -69,6 +71,7 @@ export default function FeeStructuresIndex({ academicYears = [], selectedAcademi
                     ))}
                 </div>
             )}
+            {classItems.length > 0 && <Pagination links={classes.links} from={classes.from} to={classes.to} total={classes.total} />}
 
             {can.import && (
                 <section className="mt-6">

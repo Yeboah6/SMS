@@ -128,6 +128,7 @@ export default function ReportCards({ exam, cards, single, can }) {
                     .rc-print { position: absolute; left: 0; top: 0; width: 100%; }
                     .rc-sheet { break-after: page; box-shadow: none !important; margin: 0 !important; max-width: none !important; }
                     .rc-sheet:last-child { break-after: auto; }
+                    .rc-table-wrap { overflow: visible !important; }
                     .rc-input { background: transparent !important; }
                     .rc-input::-webkit-outer-spin-button, .rc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
                 }
@@ -206,50 +207,52 @@ function Card({ card, exam, values, onClassScore, onDetail, canEdit }) {
                 <Line><Field label="Attendance obtained" value={f('attendance')} onChange={set('attendance')} type="number" readOnly={!canEdit} /><Field label="Out of" value={f('outOf')} onChange={set('outOf')} type="number" readOnly={!canEdit} /></Line>
             </div>
 
-            <table className="w-full border-collapse text-left">
-                <thead>
-                    <tr className="border-b-2 border-slate-800 text-center text-xs font-bold uppercase">
-                        <th className="border-r-2 border-slate-800 p-2 text-left">Subject</th>
-                        <th className="border-r border-slate-800 p-2">Class score<br />30%</th>
-                        <th className="border-r border-slate-800 p-2">Exams score<br />70%</th>
-                        <th className="border-r border-slate-800 p-2">Total score<br />100%</th>
-                        <th className="border-r border-slate-800 p-2">Position</th>
-                        <th className="p-2">Remarks</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {card.rows.map((r) => (
-                        <tr key={r.subjectId} className="border-b border-slate-800 text-center">
-                            <td className="border-r-2 border-slate-800 p-2 text-left">{r.subject}</td>
-                            <td className="border-r border-slate-800 p-1">
-                                {r.examScore != null && (
-                                    <input
-                                        type="number" min="0" max="30" step="0.1"
-                                        value={r.classInput !== undefined ? r.classInput : (r.classScore ?? '')}
-                                        onChange={(e) => onClassScore(id, r.subjectId, e.target.value)}
-                                        disabled={!canEdit}
-                                        title={r.classSaved ? 'Saved class score' : 'Auto-calculated'}
-                                        aria-label={`${r.subject} class score`}
-                                        className="rc-input w-16 rounded border border-slate-300 bg-slate-50 px-1 py-0.5 text-center text-sm focus:border-teal-600 focus:ring-teal-600 print:border-0"
-                                    />
-                                )}
-                            </td>
-                            <td className="border-r border-slate-800 p-2">{r.examScore ?? ''}</td>
-                            <td className="border-r border-slate-800 p-2 font-semibold">{r.total ?? ''}</td>
-                            <td className="border-r border-slate-800 p-2">{r.position ?? ''}</td>
-                            <td className="p-2">{r.remark ?? ''}</td>
+            <div className="rc-table-wrap max-w-full overflow-x-auto">
+                <table className="w-full min-w-[42rem] border-collapse text-left">
+                    <thead>
+                        <tr className="border-b-2 border-slate-800 text-center text-xs font-bold uppercase">
+                            <th className="border-r-2 border-slate-800 p-2 text-left">Subject</th>
+                            <th className="border-r border-slate-800 p-2">Class score<br />30%</th>
+                            <th className="border-r border-slate-800 p-2">Exams score<br />70%</th>
+                            <th className="border-r border-slate-800 p-2">Total score<br />100%</th>
+                            <th className="border-r border-slate-800 p-2">Position</th>
+                            <th className="p-2">Remarks</th>
                         </tr>
-                    ))}
-                    <tr className="border-y-2 border-slate-800 text-center font-bold">
-                        <td className="border-r-2 border-slate-800 p-2 text-left">TOTAL</td>
-                        <td className="border-r border-slate-800" />
-                        <td className="border-r border-slate-800" />
-                        <td className="border-r border-slate-800 p-2">{card.grandTotal}</td>
-                        <td className="border-r border-slate-800 p-2">{card.overallPosition ? `${card.overallPosition} of ${card.classSize}` : ''}</td>
-                        <td />
-                    </tr>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {card.rows.map((r) => (
+                            <tr key={r.subjectId} className="border-b border-slate-800 text-center">
+                                <td className="border-r-2 border-slate-800 p-2 text-left">{r.subject}</td>
+                                <td className="border-r border-slate-800 p-1">
+                                    {r.examScore != null && (
+                                        <input
+                                            type="number" min="0" max="30" step="0.1"
+                                            value={r.classInput !== undefined ? r.classInput : (r.classScore ?? '')}
+                                            onChange={(e) => onClassScore(id, r.subjectId, e.target.value)}
+                                            disabled={!canEdit}
+                                            title={r.classSaved ? 'Saved class score' : 'Auto-calculated'}
+                                            aria-label={`${r.subject} class score`}
+                                            className="rc-input w-16 rounded border border-slate-300 bg-slate-50 px-1 py-0.5 text-center text-sm focus:border-teal-600 focus:ring-teal-600 print:border-0"
+                                        />
+                                    )}
+                                </td>
+                                <td className="border-r border-slate-800 p-2">{r.examScore ?? ''}</td>
+                                <td className="border-r border-slate-800 p-2 font-semibold">{r.total ?? ''}</td>
+                                <td className="border-r border-slate-800 p-2">{r.position ?? ''}</td>
+                                <td className="p-2">{r.remark ?? ''}</td>
+                            </tr>
+                        ))}
+                        <tr className="border-y-2 border-slate-800 text-center font-bold">
+                            <td className="border-r-2 border-slate-800 p-2 text-left">TOTAL</td>
+                            <td className="border-r border-slate-800" />
+                            <td className="border-r border-slate-800" />
+                            <td className="border-r border-slate-800 p-2">{card.grandTotal}</td>
+                            <td className="border-r border-slate-800 p-2">{card.overallPosition ? `${card.overallPosition} of ${card.classSize}` : ''}</td>
+                            <td />
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <div className="mt-3 space-y-2">
                 <Field label="Conduct" value={f('conduct')} onChange={set('conduct')} block readOnly={!canEdit} />

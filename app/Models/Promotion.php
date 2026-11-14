@@ -19,9 +19,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'processed_by',
     'outcome',
     'reason',
+    'reversed_at',
+    'reversed_by',
+    'reversal_reason',
 ])]
 class Promotion extends Model
 {
+    protected function casts(): array
+    {
+        return [
+            'reversed_at' => 'datetime',
+        ];
+    }
+
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class)->withTrashed();
@@ -47,8 +57,33 @@ class Promotion extends Model
         return $this->belongsTo(AcademicYear::class, 'target_academic_year_id');
     }
 
+    public function sourceClass(): BelongsTo
+    {
+        return $this->belongsTo(SchoolClass::class, 'source_class_id');
+    }
+
+    public function sourceSection(): BelongsTo
+    {
+        return $this->belongsTo(Section::class, 'source_section_id');
+    }
+
+    public function targetClass(): BelongsTo
+    {
+        return $this->belongsTo(SchoolClass::class, 'target_class_id');
+    }
+
+    public function targetSection(): BelongsTo
+    {
+        return $this->belongsTo(Section::class, 'target_section_id');
+    }
+
     public function processor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'processed_by');
+    }
+
+    public function reverser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reversed_by');
     }
 }

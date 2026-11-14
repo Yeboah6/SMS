@@ -26,6 +26,9 @@ export default function SalesReceipt({ sale, schoolName }) {
                         border: none !important;
                         box-shadow: none !important;
                     }
+                    .receipt-table-wrap {
+                        overflow: visible !important;
+                    }
                 }
             `}</style>
 
@@ -53,29 +56,31 @@ export default function SalesReceipt({ sale, schoolName }) {
                         <Row label="Served by" value={sale.soldBy} />
                     </dl>
 
-                    <table className="mt-6 w-full text-left text-sm">
-                        <thead className="border-y border-slate-200 text-xs text-slate-500">
-                            <tr>
-                                <th className="py-2 pr-2">Item</th>
-                                <th className="py-2 pr-2 text-right">Qty</th>
-                                <th className="py-2 pr-2 text-right">Price</th>
-                                <th className="py-2 text-right">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {sale.items.map((line) => (
-                                <tr key={line.id}>
-                                    <td className="py-2 pr-2 text-slate-800">
-                                        {line.name}
-                                        {line.returned > 0 && <span className="block text-xs text-slate-500">{line.returned} returned</span>}
-                                    </td>
-                                    <td className="py-2 pr-2 text-right">{line.quantity}</td>
-                                    <td className="py-2 pr-2 text-right">{money(line.unitPrice)}</td>
-                                    <td className="py-2 text-right text-slate-900">{money(line.lineTotal)}</td>
+                    <div className="receipt-table-wrap mt-6 max-w-full overflow-x-auto">
+                        <table className="w-full min-w-[28rem] text-left text-sm">
+                            <thead className="border-y border-slate-200 text-xs text-slate-500">
+                                <tr>
+                                    <th className="py-2 pr-2">Item</th>
+                                    <th className="py-2 pr-2 text-right">Qty</th>
+                                    <th className="py-2 pr-2 text-right">Price</th>
+                                    <th className="py-2 text-right">Total</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {sale.items.map((line) => (
+                                    <tr key={line.id}>
+                                        <td className="py-2 pr-2 text-slate-800">
+                                            {line.name}
+                                            {line.returned > 0 && <span className="block text-xs text-slate-500">{line.returned} returned</span>}
+                                        </td>
+                                        <td className="py-2 pr-2 text-right">{line.quantity}</td>
+                                        <td className="py-2 pr-2 text-right">{money(line.unitPrice)}</td>
+                                        <td className="py-2 text-right text-slate-900">{money(line.lineTotal)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
 
                     <dl className="mt-4 ml-auto w-full max-w-xs space-y-1.5 text-sm">
                         <div className="flex justify-between text-slate-600"><dt>Subtotal</dt><dd>{money(sale.subtotal)}</dd></div>

@@ -95,6 +95,49 @@ test('students and parents only see published notices intended for their audienc
             ]));
 });
 
+test('shared recent notices respect audience, publication, expiry, order, and the display limit', function () {
+    $student = User::factory()->create();
+    $student->assignRole('Student');
+    $expectedNoticeIds = [];
+    $publishedAt = now();
+
+    foreach (range(1, 6) as $index) {
+        $notice = Notice::factory()->published()->create([
+            'title' => "Student notice {$index}",
+            'body' => 'Notice details for students.',
+            'audience' => 'students',
+            'published_at' => $publishedAt->copy()->subMinutes($index),
+        ]);
+
+        if ($index <= 5) {
+            $expectedNoticeIds[] = $notice->id;
+        }
+    }
+
+    Notice::factory()->published()->create(['title' => 'Parent notice', 'audience' => 'parents']);
+    Notice::factory()->create(['title' => 'Draft', 'audience' => 'students']);
+    Notice::factory()->published()->create([
+        'title' => 'Expired student notice',
+        'audience' => 'students',
+        'expires_at' => today()->subDay()->toDateString(),
+    ]);
+
+    $this->actingAs($student)->get(route('dashboard'))
+        ->assertInertia(fn ($page) => $page
+            ->where('recentNotices', fn ($notices): bool => collect($notices)->pluck('id')->all() === $expectedNoticeIds)
+            ->where('recentNotices.0.title', 'Student notice 1')
+            ->where('recentNotices.0.excerpt', 'Notice details for students.')
+            ->where('recentNotices.0.publishedAt', $publishedAt->copy()->subMinute()->toIso8601String()));
+});
+
+test('shared recent notices are hidden from users without notice access', function () {
+    $user = User::factory()->create();
+    Notice::factory()->published()->create(['title' => 'Restricted notice', 'audience' => 'all']);
+
+    $this->actingAs($user)->get(route('dashboard'))
+        ->assertInertia(fn ($page) => $page->where('recentNotices', null));
+});
+
 test('teachers see staff notices while unpublished drafts remain restricted to publishers', function () {
     $teacher = User::factory()->create();
     $teacher->assignRole('Teacher');

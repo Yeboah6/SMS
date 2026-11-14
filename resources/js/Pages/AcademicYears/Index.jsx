@@ -1,17 +1,9 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { CalendarDays, Check, LockKeyhole, Plus } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { CalendarDays, Check, LockKeyhole, Pencil, Plus } from 'lucide-react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import AppLayout from '../../Layouts/AppLayout';
-import { Field, inputClass } from '../Auth/Login';
 
 export default function AcademicYearsIndex({ years, can }) {
-    const { status, errors } = usePage().props;
-    const form = useForm({ name: '', start_date: '', end_date: '' });
-
-    function createYear(event) {
-        event.preventDefault();
-        form.post('/academic-years', { onSuccess: () => form.reset() });
-    }
-
     function runAction(year, action) {
         const labels = {
             activate: 'Activate this academic year?',
@@ -29,72 +21,29 @@ export default function AcademicYearsIndex({ years, can }) {
             return;
         }
 
-        router.post(`/academic-years/${year.id}/${action}`, { preserveScroll: true });
+        router.post(`/academic-years/${year.id}/${action}`, {}, { preserveScroll: true });
     }
 
     return (
         <AppLayout title="Academic years" description="Manage school-year history and control when academic transactions can change.">
             <Head title="Academic years" />
-            {status && <StatusMessage>{status}</StatusMessage>}
-            {errors.academic_year && <ErrorMessage>{errors.academic_year}</ErrorMessage>}
-
-            {can.create && (
-                <section className="mb-7 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                    <div className="mb-5 flex items-start gap-3">
-                        <span className="flex size-10 items-center justify-center rounded-xl bg-teal-50 text-teal-800">
-                            <Plus size={19} />
-                        </span>
-                        <div>
-                            <h2 className="font-semibold text-slate-900">Create an academic year</h2>
-                            <p className="mt-1 text-sm text-slate-500">New years start in Draft. Add terms before activation.</p>
-                        </div>
-                    </div>
-                    <form onSubmit={createYear} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <Field label="Academic year name" error={form.errors.name}>
-                            <input
-                                value={form.data.name}
-                                onChange={(event) => form.setData('name', event.target.value)}
-                                className={inputClass(form.errors.name)}
-                                placeholder="2026/2027"
-                                required
-                            />
-                        </Field>
-                        <Field label="Start date" error={form.errors.start_date}>
-                            <input
-                                type="date"
-                                value={form.data.start_date}
-                                onChange={(event) => form.setData('start_date', event.target.value)}
-                                className={inputClass(form.errors.start_date)}
-                                required
-                            />
-                        </Field>
-                        <Field label="End date" error={form.errors.end_date}>
-                            <input
-                                type="date"
-                                value={form.data.end_date}
-                                onChange={(event) => form.setData('end_date', event.target.value)}
-                                className={inputClass(form.errors.end_date)}
-                                required
-                            />
-                        </Field>
-                        <div className="flex items-end">
-                            <button
-                                disabled={form.processing}
-                                className="w-full rounded-xl bg-teal-800 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-900 disabled:opacity-60"
-                            >
-                                Create draft
-                            </button>
-                        </div>
-                    </form>
-                </section>
-            )}
+            <PageAlerts />
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
                     <div>
                         <h2 className="font-semibold text-slate-900">Year history</h2>
                         <p className="mt-1 text-sm text-slate-500">{years.total.toLocaleString()} academic years</p>
                     </div>
+                    {can.create && (
+                        <Link
+                            href="/academic-years/create"
+                            className="inline-flex items-center gap-2 rounded-xl bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-900"
+                        >
+                            <Plus size={16} />
+                            New academic year
+                        </Link>
+                    )}
                 </div>
                 {years.data.length === 0 ? (
                     <div className="px-6 py-14 text-center">
@@ -120,6 +69,15 @@ export default function AcademicYearsIndex({ years, can }) {
                                     </p>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
+                                    {year.status === 'draft' && can.update && (
+                                        <Link
+                                            href={`/academic-years/${year.id}/edit`}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <Pencil size={14} />
+                                            Edit
+                                        </Link>
+                                    )}
                                     {year.status === 'draft' && can.activate && (
                                         <ActionButton onClick={() => runAction(year, 'activate')} icon={Check}>Activate</ActionButton>
                                     )}
@@ -202,12 +160,4 @@ function Pagination({ links }) {
             ))}
         </nav>
     );
-}
-
-function StatusMessage({ children }) {
-    return <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{children}</div>;
-}
-
-function ErrorMessage({ children }) {
-    return <div role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{children}</div>;
 }

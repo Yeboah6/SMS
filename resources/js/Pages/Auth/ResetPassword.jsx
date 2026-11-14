@@ -1,5 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, GraduationCap, LoaderCircle } from 'lucide-react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import { Field, inputClass, PasswordInput } from './Login';
 
 export default function ResetPassword({ email, token }) {
@@ -20,6 +21,7 @@ export default function ResetPassword({ email, token }) {
     return (
         <>
             <Head title="Choose a new password" />
+            <PageAlerts />
             <main className="flex min-h-screen items-center justify-center bg-slate-50 px-5 py-12">
                 <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-9">
                     <Link href="/login" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-teal-800">

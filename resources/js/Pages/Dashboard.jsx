@@ -28,16 +28,16 @@ export default function Dashboard({ dashboard }) {
         >
             <Head title="School overview" />
 
-            <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-teal-800 via-teal-800 to-emerald-700 p-6 text-white shadow-lg shadow-teal-950/10 sm:p-9">
+            <section className="overflow-hidden rounded-3xl bg-teal-800 bg-gradient-to-br from-teal-800 via-teal-800 to-emerald-700 p-6 text-white shadow-lg shadow-teal-950/10 sm:p-9">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                     <div className="max-w-2xl">
                         <p className="text-sm font-semibold text-teal-100">{dashboard.roleLabel} workspace</p>
                         <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
                             Your school operations at a glance.
                         </h2>
-                        <p className="mt-3 max-w-xl text-sm leading-6 text-teal-50/90 sm:text-base">
+                        {/* <p className="mt-3 max-w-xl text-sm leading-6 text-teal-50/90 sm:text-base">
                             Review the items relevant to your role and jump directly to the next task.
-                        </p>
+                        </p> */}
                     </div>
                     <div className="flex items-center gap-2 self-start rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-sm font-medium text-white sm:self-auto">
                         <CalendarDays aria-hidden="true" size={17} />

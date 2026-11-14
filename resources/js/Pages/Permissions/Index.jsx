@@ -1,10 +1,12 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { KeyRound } from 'lucide-react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import AppLayout from '../../Layouts/AppLayout';
+import Pagination from '../../Components/Pagination';
 
 export default function PermissionsIndex({ groups }) {
-    const { auth, status, errors = {} } = usePage().props;
-    const permissions = Object.values(groups).flat();
+    const { auth } = usePage().props;
+    const permissionGroups = groups.data || [];
     const canCreate = auth.user.permissions.includes('permissions.create');
     const canDelete = auth.user.permissions.includes('permissions.delete');
     const createForm = useForm({ name: '' });
@@ -28,8 +30,7 @@ export default function PermissionsIndex({ groups }) {
             description="The application permission catalog used by role assignments and server-side authorization."
         >
             <Head title="Permissions" />
-            {status && <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{status}</div>}
-            {errors.permission && <div role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{errors.permission}</div>}
+            <PageAlerts />
             {canCreate && (
                 <form onSubmit={createPermission} className="mb-6 grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                     <div>
@@ -58,12 +59,12 @@ export default function PermissionsIndex({ groups }) {
             <div className="mb-6 flex items-center gap-3 rounded-2xl border border-teal-100 bg-teal-50 p-4 text-sm text-teal-950">
                 <KeyRound size={18} className="shrink-0 text-teal-800" />
                 <p>
-                    <span className="font-semibold">{permissions.length} permissions</span>
+                    <span className="font-semibold">{groups.total} permissions</span>
                     <span className="text-teal-800"> · Authorization is checked by Laravel, not by navigation visibility alone.</span>
                 </p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
-                {Object.entries(groups).map(([group, items]) => (
+                {permissionGroups.map(({ name: group, items }) => (
                     <section key={group} className="rounded-2xl border border-slate-200 bg-white p-5">
                         <div className="flex items-center justify-between">
                             <h2 className="font-semibold capitalize text-slate-900">{group.replaceAll('_', ' ')}</h2>
@@ -88,6 +89,7 @@ export default function PermissionsIndex({ groups }) {
                     </section>
                 ))}
             </div>
+            <Pagination links={groups.links} from={groups.from} to={groups.to} total={groups.total} />
             <p className="mt-5 text-xs leading-5 text-slate-500">
                 Permission keys are immutable. A permission can be removed only after it has been unassigned from every role.
             </p>

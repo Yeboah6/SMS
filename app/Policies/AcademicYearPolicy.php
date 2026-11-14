@@ -5,6 +5,11 @@ namespace App\Policies;
 use App\Models\AcademicYear;
 use App\Models\User;
 
+/**
+ * Permission-only checks. Lifecycle rules (draft/active/completed/locked)
+ * live in AcademicYearService so users get a clear validation message
+ * instead of a bare 403.
+ */
 class AcademicYearPolicy
 {
     public function viewAny(User $user): bool

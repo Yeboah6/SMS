@@ -1,11 +1,13 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AppLayout from '../../../Layouts/AppLayout';
-import PageAlerts from '../../../Components/PageAlerts';
+import PageAlerts from '../../../Components/Exams/PageAlerts';
 import SuppliesNav from '../../../Components/Supplies/SuppliesNav';
 import { Field, inputClass } from '../../Auth/Login';
+import Pagination from '../../../Components/Pagination';
 
 export default function CategoriesIndex({ categories, can }) {
+    const categoryItems = categories.data || [];
     const [editing, setEditing] = useState(null);
 
     return (
@@ -19,7 +21,7 @@ export default function CategoriesIndex({ categories, can }) {
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 <ul className="divide-y divide-slate-100">
-                    {categories.map((category) => (
+                    {categoryItems.map((category) => (
                         <li key={category.id} className="px-5 py-4">
                             {editing === category.id ? (
                                 <CategoryForm action={`/supplies/categories/${category.id}`} method="put" category={category} onDone={() => setEditing(null)} />
@@ -37,6 +39,8 @@ export default function CategoriesIndex({ categories, can }) {
                         </li>
                     ))}
                 </ul>
+                {categoryItems.length === 0 && <p className="px-5 py-8 text-center text-sm text-slate-500">No categories yet.</p>}
+                <Pagination links={categories.links} from={categories.from} to={categories.to} total={categories.total} />
             </section>
         </AppLayout>
     );

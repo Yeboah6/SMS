@@ -21,6 +21,10 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable, SoftDeletes;
 
+    protected $attributes = [
+        'must_change_password' => false,
+    ];
+
     /**
      * Get the attributes that should be cast.
      *
@@ -30,6 +34,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'must_change_password' => 'boolean',
             'password' => 'hashed',
         ];
     }

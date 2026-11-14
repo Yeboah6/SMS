@@ -1,10 +1,10 @@
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { useRef } from 'react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import AppLayout from '../../Layouts/AppLayout';
 import { Field, inputClass } from '../Auth/Login';
 
 export default function SettingsEdit({ settings }) {
-    const { status } = usePage().props;
     const logoInput = useRef(null);
     const form = useForm({
         school_name: settings.school_name,
@@ -43,7 +43,7 @@ export default function SettingsEdit({ settings }) {
     return (
         <AppLayout title="School settings" description="Configure school identity, grading, fees, and notification defaults.">
             <Head title="School settings" />
-            {status && <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{status}</div>}
+            <PageAlerts />
             <form onSubmit={submit} className="grid gap-6">
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
                     <h2 className="font-semibold text-slate-900">School identity</h2>

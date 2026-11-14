@@ -7,10 +7,133 @@
 @theme {
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-school-teal: #0f766e;
 }
 
 html {
     font-family: var(--font-sans);
     font-synthesis: none;
     text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+}
+
+body {
+    background-color: #f8fafc;
+}
+
+::selection {
+    background-color: rgb(13 148 136 / 0.18);
+    color: #134e4a;
+}
+
+@layer base {
+    :where(#app main) {
+        overflow-wrap: anywhere;
+    }
+
+    :where(#app main > *) {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    :where(#app main .grid > *, #app main .flex > *) {
+        min-width: 0;
+    }
+
+    :where(#app main div, #app main section, #app main article):has(> table) {
+        max-width: 100%;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+    }
+
+    :where(
+        #app main input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='submit']):not([type='button']):not([type='reset']):not([type='image']),
+        #app main select,
+        #app main textarea
+    ) {
+        max-width: 100%;
+    }
+
+    :where(#app main img, #app main video, #app main canvas) {
+        max-width: 100%;
+    }
+
+    :where(
+        #app input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='submit']):not([type='button']):not([type='reset']):not([type='image']),
+        #app select,
+        #app textarea
+    ) {
+        border-style: solid;
+        border-width: 1px;
+        border-color: #cbd5e1;
+        border-radius: 0.75rem;
+        background-color: #fff;
+        color: #0f172a;
+        padding: 0.625rem 0.875rem;
+        transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    :where(#app button) {
+        cursor: pointer;
+        transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+    }
+
+    :where(#app button:disabled) {
+        cursor: not-allowed;
+    }
+
+    :where(#app input[type='checkbox'], #app input[type='radio']) {
+        accent-color: var(--color-school-teal);
+    }
+
+    :where(#app input:focus-visible, #app select:focus-visible, #app textarea:focus-visible) {
+        outline-color: var(--color-school-teal);
+        outline-offset: 2px;
+    }
+
+    :where(#app a:focus-visible, #app button:focus-visible) {
+        outline: 2px solid var(--color-school-teal);
+        outline-offset: 3px;
+    }
+
+    :where(#app table) {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    :where(#app th) {
+        background-color: #f8fafc;
+        color: #475569;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    :where(#app td, #app th) {
+        border-bottom: 1px solid #f1f5f9;
+        padding: 0.75rem 1rem;
+    }
+
+    :where(#app tbody tr) {
+        transition: background-color 150ms ease;
+    }
+
+    :where(#app tbody tr:hover) {
+        background-color: #f8fafc;
+    }
+
+    :where(#app main section.rounded-2xl.border.border-slate-200.bg-white, #app main article.rounded-2xl.border.border-slate-200.bg-white) {
+        border-color: #e2e8f0;
+        box-shadow: 0 1px 3px rgb(15 23 42 / 0.045), 0 1px 2px rgb(15 23 42 / 0.025);
+    }
+
+    :where(#app main section.overflow-hidden.rounded-2xl.border.border-slate-200.bg-white) {
+        box-shadow: 0 1px 3px rgb(15 23 42 / 0.045), 0 1px 2px rgb(15 23 42 / 0.025);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
 }

@@ -1,10 +1,13 @@
 import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
 import PageAlerts from '../../Components/Exams/PageAlerts';
+import Pagination from '../../Components/Pagination';
 import { Field, inputClass } from '../Auth/Login';
 import { dateLabel, shiftDate } from '../../lib/attendance';
 
 export default function AttendanceIndex({ academicYears, selectedAcademicYearId, yearStart, yearEnd, attendanceDate, registers, summary, yearLocked, can }) {
+    const registerItems = registers.data || [];
+
     function visit(params) {
         router.get('/attendance', { academic_year_id: selectedAcademicYearId, date: attendanceDate, ...params }, { preserveScroll: true });
     }
@@ -46,7 +49,7 @@ export default function AttendanceIndex({ academicYears, selectedAcademicYearId,
             </section>
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                {registers.length === 0 ? (
+                {registerItems.length === 0 ? (
                     <p className="px-6 py-14 text-center text-sm text-slate-500">No class sections are available for this year{summary.sections === 0 ? ' (or none are assigned to you)' : ''}.</p>
                 ) : (
                     <div className="overflow-x-auto">
@@ -55,7 +58,7 @@ export default function AttendanceIndex({ academicYears, selectedAcademicYearId,
                                 <tr><th className="px-5 py-3">Class section</th><th className="px-5 py-3">Register</th><th className="px-5 py-3">Present</th><th className="px-5 py-3">Absent</th><th className="px-5 py-3">Late</th><th className="px-5 py-3">Excused</th><th className="px-5 py-3"><span className="sr-only">Actions</span></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {registers.map((register) => (
+                                {registerItems.map((register) => (
                                     <tr key={register.sectionId}>
                                         <td className="px-5 py-3.5 font-medium text-slate-900">{register.className} · {register.sectionName}</td>
                                         <td className="px-5 py-3.5"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${register.taken ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{register.taken ? 'Taken' : 'Not taken'}</span></td>
@@ -81,6 +84,7 @@ export default function AttendanceIndex({ academicYears, selectedAcademicYearId,
                         </table>
                     </div>
                 )}
+                {registerItems.length > 0 && <Pagination links={registers.links} from={registers.from} to={registers.to} total={registers.total} />}
             </section>
         </AppLayout>
     );

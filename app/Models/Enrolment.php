@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'academic_year_id',
@@ -45,9 +46,9 @@ class Enrolment extends Model
         return $this->belongsTo(Section::class);
     }
 
-    public function promotionAsSource(): HasOne
+    public function promotionAsSource(): HasMany
     {
-        return $this->hasOne(Promotion::class, 'source_enrolment_id');
+        return $this->hasMany(Promotion::class, 'source_enrolment_id')->orderByDesc('id');
     }
 
     public function transferAsSource(): HasOne

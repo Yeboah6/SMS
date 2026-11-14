@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
 import StatusBanner from '../../Components/StatusBanner';
+import Pagination from '../../Components/Pagination';
 import StudentsTable from '../../Components/StudentsTable';
 
 export default function SectionsShow({ section, schoolClass, yearLocked, students, teachers, can }) {
@@ -13,7 +14,7 @@ export default function SectionsShow({ section, schoolClass, yearLocked, student
     }
 
     const capacity = section.capacity
-        ? `${students.length} of ${section.capacity} seats filled`
+        ? `${students.total} of ${section.capacity} seats filled`
         : 'Capacity not set';
 
     return (
@@ -32,7 +33,8 @@ export default function SectionsShow({ section, schoolClass, yearLocked, student
             {can.viewStudents && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
                     <h2 className="mb-4 font-semibold text-slate-900">Students</h2>
-                    <StudentsTable students={students} />
+                    <StudentsTable students={students.data} />
+                    <Pagination links={students.links} from={students.from} to={students.to} total={students.total} />
                 </section>
             )}
         </AppLayout>

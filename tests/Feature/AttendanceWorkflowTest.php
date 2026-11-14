@@ -151,6 +151,43 @@ test('assigned teachers can view a section roster and record daily attendance', 
         ->not->toHaveKey('remarks');
 });
 
+test('staff attendance registers paginate visible sections and preserve the selected date', function () {
+    [, , $year, $firstSection] = createAttendanceScenario();
+    $administrator = User::factory()->create();
+    $administrator->assignRole('Super Admin');
+
+    for ($index = 2; $index <= 16; $index++) {
+        app(AcademicStructureService::class)->createSection($firstSection->schoolClass, [
+            'name' => 'Section '.$index,
+        ]);
+    }
+
+    $this->actingAs($administrator)->get(route('attendance.index', [
+        'academic_year_id' => $year->id,
+        'date' => '2030-08-02',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Attendance/Index')
+            ->where('registers.total', 16)
+            ->where('registers.per_page', 15)
+            ->has('registers.data', 15)
+            ->where('registers.links.2.url', fn (string $url): bool => str_contains($url, 'academic_year_id='.$year->id)
+                && str_contains($url, 'date=2030-08-02')
+                && str_contains($url, 'page=2')));
+
+    $this->actingAs($administrator)->get(route('attendance.index', [
+        'academic_year_id' => $year->id,
+        'date' => '2030-08-02',
+        'page' => 2,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('registers.current_page', 2)
+            ->where('registers.total', 16)
+            ->has('registers.data', 1));
+});
+
 test('teachers cannot mark attendance for sections outside their assignments', function () {
     [$teacher, , $year, $assignedSection] = createAttendanceScenario();
     $otherClass = app(AcademicStructureService::class)->createClass($year, ['name' => 'Other Class']);

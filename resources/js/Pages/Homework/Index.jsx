@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 import PageAlerts from '../../Components/Exams/PageAlerts';
+import Pagination from '../../Components/Pagination';
 import Pill from '../../Components/Homework/Pill';
 import { Field, inputClass } from '../Auth/Login';
 import { MY_STATUS, WINDOW, dateLabel } from '../../lib/homework';
@@ -73,15 +74,7 @@ export default function HomeworkIndex({ academicYear, assignments, filters, role
                     </ul>
                 )}
 
-                {assignments.links.length > 3 && (
-                    <nav aria-label="Homework pages" className="flex flex-wrap justify-center gap-1 border-t border-slate-100 px-4 py-4">
-                        {assignments.links.map((link, index) => (
-                            <Link key={`${link.label}-${index}`} href={link.url || '#'} preserveScroll preserveState aria-current={link.active ? 'page' : undefined} className={`rounded-lg px-3 py-2 text-sm ${link.active ? 'bg-teal-800 font-semibold text-white' : 'text-slate-600 hover:bg-slate-100'} ${!link.url ? 'pointer-events-none opacity-40' : ''}`}>
-                                {link.label.replace(/<[^>]*>/g, '').replaceAll('&laquo;', '‹').replaceAll('&raquo;', '›')}
-                            </Link>
-                        ))}
-                    </nav>
-                )}
+                <Pagination links={assignments.links} from={assignments.from} to={assignments.to} total={assignments.total} />
             </section>
         </AppLayout>
     );

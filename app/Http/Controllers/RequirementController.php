@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\MarkExternalFulfilmentRequest;
 use App\Http\Requests\StoreRequirementRequest;
 use App\Models\AcademicYear;
@@ -36,7 +35,7 @@ class RequirementController extends Controller
             'selectedAcademicYearId' => $year?->id,
             'classes' => $classes->map(fn ($item): array => ['id' => $item->id, 'name' => $item->name, 'requirements' => (int) ($counts[$item->id] ?? 0)])->values(),
             'selectedClassId' => $class?->id,
-            'completion' => $year && $class ? $service->completion($year, $class) : null,
+            'completion' => $year && $class ? $service->completion($year, $class, paginateStudents: true) : null,
             'can' => [
                 'manage' => $user->can('manage', ClassSupplyRequirement::class),
                 'external' => (bool) config('supplies.allow_external_fulfilment') && $user->can('supplies.requirements.fulfil_external'),

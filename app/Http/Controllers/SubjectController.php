@@ -72,12 +72,42 @@ class SubjectController extends Controller
 
         $staffId = $this->scopedStaffId($request);
 
-        $assignments = $subject->teacherSubjectAssignments()
+        $assignmentQuery = $subject->teacherSubjectAssignments()
+            ->join('sections', 'teacher_subject_assignments.section_id', '=', 'sections.id')
+            ->join('classes', 'sections.class_id', '=', 'classes.id')
             ->when($staffId !== null, fn ($query) => $query->where('staff_id', $staffId))
             ->with(['staff', 'section.schoolClass'])
-            ->get();
+            ->orderByRaw('LOWER(classes.name)')
+            ->orderByRaw('LOWER(sections.name)')
+            ->orderBy('teacher_subject_assignments.id');
 
-        abort_if($staffId !== null && $assignments->isEmpty(), 403);
+        abort_if($staffId !== null && ! (clone $assignmentQuery)->exists(), 403);
+
+        $assignments = $assignmentQuery
+            ->paginate(15, ['teacher_subject_assignments.*'], 'assignments_page')
+            ->withQueryString()
+            ->through(fn ($assignment): array => [
+                'id' => $assignment->id,
+                'staffName' => $assignment->staff->name,
+                'sectionId' => $assignment->section->id,
+                'sectionName' => $assignment->section->name,
+                'className' => $assignment->section->schoolClass->name,
+            ]);
+
+        $classes = $staffId === null
+            ? ClassSubject::query()
+                ->join('classes', 'class_subjects.class_id', '=', 'classes.id')
+                ->where('class_subjects.subject_id', $subject->id)
+                ->with('schoolClass')
+                ->orderByRaw('LOWER(classes.name)')
+                ->orderBy('classes.id')
+                ->paginate(15, ['class_subjects.*'], 'classes_page')
+                ->withQueryString()
+                ->through(fn (ClassSubject $row): array => [
+                    'id' => $row->schoolClass->id,
+                    'name' => $row->schoolClass->name,
+                ])
+            : null;
 
         return Inertia::render('Subjects/Show', [
             'subject' => [
@@ -87,25 +117,8 @@ class SubjectController extends Controller
                 'description' => $subject->description,
             ],
             // Scoped teachers only see their own assignments, so the class list is hidden for them.
-            'classes' => $staffId === null
-                ? ClassSubject::query()
-                    ->where('subject_id', $subject->id)
-                    ->with('schoolClass')
-                    ->get()
-                    ->map(fn (ClassSubject $row): array => [
-                        'id' => $row->schoolClass->id,
-                        'name' => $row->schoolClass->name,
-                    ])
-                    ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
-                    ->values()
-                : null,
-            'assignments' => $assignments->map(fn ($assignment): array => [
-                'id' => $assignment->id,
-                'staffName' => $assignment->staff->name,
-                'sectionId' => $assignment->section->id,
-                'sectionName' => $assignment->section->name,
-                'className' => $assignment->section->schoolClass->name,
-            ])->sortBy(['className', 'sectionName'])->values(),
+            'classes' => $classes,
+            'assignments' => $assignments,
             'can' => [
                 'update' => $user->can('subjects.update'),
                 'delete' => $user->can('subjects.delete'),

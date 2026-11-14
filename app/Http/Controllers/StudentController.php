@@ -17,7 +17,9 @@ use App\Models\StudentActivity;
 use App\Models\StudentSupplySale;
 use App\Models\User;
 use App\Services\GuardianAccountService;
+use App\Services\StudentAccountService;
 use App\Services\StudentProfileService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -93,6 +95,7 @@ class StudentController extends Controller
         StoreStudentRequest $request,
         StudentProfileService $service,
         GuardianAccountService $guardianAccounts,
+        StudentAccountService $studentAccounts,
     ): RedirectResponse {
         $data = $request->validated();
         $inviteParentAccounts = $request->boolean('invite_parent_accounts');
@@ -112,7 +115,10 @@ class StudentController extends Controller
             }
         }
 
-        $status = "Student profile {$student->admission_number} created.";
+        $studentAccounts->createFor($student);
+
+        $status = "Student profile {$student->admission_number} created. "
+            .'The student can sign in with the admission number and the default password, and must change it on first sign-in.';
         $invitationFailures = [];
 
         if ($inviteParentAccounts) {
@@ -461,7 +467,8 @@ class StudentController extends Controller
                         'date' => $enrolment->enrolment_date->toDateString(),
                         'status' => $enrolment->status,
                         'outcome' => $enrolment->outcome,
-                        'outcomeReason' => $enrolment->promotionAsSource?->reason,
+                        'outcomeReason' => $enrolment->promotionAsSource
+                            ->firstWhere('reversed_at', null)?->reason,
                     ]),
                 'documents' => $student->documents->map(fn ($document): array => [
                     'id' => $document->id,
@@ -491,6 +498,7 @@ class StudentController extends Controller
             ],
             'canEdit' => $request->user()->can('update', $student),
             'canDelete' => $request->user()->can('delete', $student),
+            'canResetPassword' => $request->user()->can('students.reset_password'),
             'canUploadDocuments' => $request->user()->can('manageDocuments', $student),
             'canEnrol' => $canEnrol,
             'canTransfer' => $request->user()->can('students.transfer')
@@ -604,12 +612,25 @@ class StudentController extends Controller
         return back()->with('status', 'Student enrolled for the academic year.');
     }
 
+    public function resetPassword(Request $request, Student $student, StudentAccountService $studentAccounts): RedirectResponse
+    {
+        abort_unless($request->user()->can('students.reset_password'), 403);
+
+        $student = Student::query()->visibleTo($request->user())->findOrFail($student->getKey());
+        $studentAccounts->resetPassword($student);
+
+        return back()->with('status', 'Password reset to the default. The student must choose a new one on next sign-in.');
+    }
+
     public function destroy(Request $request, Student $student, StudentProfileService $service): RedirectResponse
     {
         $student = Student::query()->visibleTo($request->user())->findOrFail($student->getKey());
         $this->authorize('delete', $student);
 
+        $userId = $student->user_id;
+
         $service->delete($student, $request->user());
+        $studentAccounts->deleteUser($userId);
 
         return redirect()->route('students.index')->with('status', 'Student profile deleted.');
     }

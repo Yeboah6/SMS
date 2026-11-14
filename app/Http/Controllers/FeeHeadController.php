@@ -35,15 +35,16 @@ class FeeHeadController extends Controller
                     ->where('name', 'like', "%{$search}%")
                     ->orWhere('code', 'like', "%{$search}%")))
                 ->orderBy('name')
-                ->get(['id', 'code', 'name', 'description', 'is_active'])
-                ->map(fn (FeeHead $head): array => [
+                ->paginate(15)
+                ->withQueryString()
+                ->through(fn (FeeHead $head): array => [
                     'id' => $head->id,
                     'code' => $head->code,
                     'name' => $head->name,
                     'description' => $head->description,
                     'isActive' => (bool) $head->is_active,
                     'structuresCount' => (int) ($usage[$head->id] ?? 0),
-                ])->values(),
+                ]),
             'search' => $search,
             'can' => [
                 'create' => $user->can('fee_heads.create'),

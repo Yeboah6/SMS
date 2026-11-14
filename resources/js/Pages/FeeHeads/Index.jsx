@@ -4,8 +4,10 @@ import AppLayout from '../../Layouts/AppLayout';
 import PageAlerts from '../../Components/Exams/PageAlerts';
 import FeesNav from '../../Components/Fees/FeesNav';
 import SpreadsheetImport from '../../Components/Fees/SpreadsheetImport';
+import Pagination from '../../Components/Pagination';
 
 export default function FeeHeadsIndex({ feeHeads, search, can }) {
+    const items = feeHeads.data || [];
     const [query, setQuery] = useState(search || '');
 
     function submitSearch(event) {
@@ -27,7 +29,7 @@ export default function FeeHeadsIndex({ feeHeads, search, can }) {
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm text-slate-500">A fee head such as Tuition is priced per class in the next step. {feeHeads.length} fee head{feeHeads.length === 1 ? '' : 's'}.</p>
+                    <p className="text-sm text-slate-500">A fee head such as Tuition is priced per class in the next step. {feeHeads.total} fee head{feeHeads.total === 1 ? '' : 's'}.</p>
                     <div className="flex flex-wrap items-center gap-3">
                         <form onSubmit={submitSearch} className="flex gap-2">
                             <input type="search" aria-label="Search fee heads" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Code or name" className="w-44 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
@@ -38,7 +40,7 @@ export default function FeeHeadsIndex({ feeHeads, search, can }) {
                     </div>
                 </div>
 
-                {feeHeads.length === 0 ? (
+                {items.length === 0 ? (
                     <p className="px-6 py-12 text-center text-sm text-slate-500">{search ? `No fee heads match “${search}”.` : 'No fee heads yet. Add the first one to begin.'}</p>
                 ) : (
                     <div className="overflow-x-auto">
@@ -47,7 +49,7 @@ export default function FeeHeadsIndex({ feeHeads, search, can }) {
                                 <tr><th className="px-5 py-3">Fee head</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Used in structures</th><th className="px-5 py-3"><span className="sr-only">Actions</span></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {feeHeads.map((head) => (
+                                {items.map((head) => (
                                     <tr key={head.id}>
                                         <td className="px-5 py-3.5">
                                             <Link href={`/fee-heads/${head.id}`} className="font-medium text-teal-800 hover:text-teal-950">{head.name}</Link>
@@ -68,6 +70,7 @@ export default function FeeHeadsIndex({ feeHeads, search, can }) {
                         </table>
                     </div>
                 )}
+                <Pagination links={feeHeads.links} from={feeHeads.from} to={feeHeads.to} total={feeHeads.total} />
             </section>
 
             {can.import && (

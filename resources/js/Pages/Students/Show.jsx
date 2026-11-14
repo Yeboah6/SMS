@@ -4,7 +4,7 @@ import PageAlerts from '../../Components/Exams/PageAlerts';
 import AppLayout from '../../Layouts/AppLayout';
 import { Field, inputClass } from '../Auth/Login';
 
-export default function StudentShow({ student, canEdit, canDelete, canEnrol, canTransfer, transferEnrolmentId, transfers, canUploadDocuments, canViewNotes, canCreateNotes, canViewAuditHistory, auditEntries, academicYears, classes, today, canManageGuardianAccounts, eligibleParentAccounts, canViewAttendance, attendanceRecords, canViewResults, examMarks, canViewFees, invoices, canViewHomework, homeworkSubmissions, canViewSupplySales, supplySales, history }) {
+export default function StudentShow({ student, canEdit, canDelete, canEnrol, canResetPassword, canTransfer, transferEnrolmentId, transfers, canUploadDocuments, canViewNotes, canCreateNotes, canViewAuditHistory, auditEntries, academicYears, classes, today, canManageGuardianAccounts, eligibleParentAccounts, canViewAttendance, attendanceRecords, canViewResults, examMarks, canViewFees, invoices, canViewHomework, homeworkSubmissions, canViewSupplySales, supplySales, history }) {
     // const { status } = usePage().props;
     const [activeTab, setActiveTab] = useState('overview');
     const enrolmentForm = useForm({
@@ -43,6 +43,12 @@ export default function StudentShow({ student, canEdit, canDelete, canEnrol, can
     function deleteStudent() {
         if (window.confirm(`Delete ${student.name}? Students with enrolment, attendance, results or fee history cannot be deleted; mark them inactive instead.`)) {
             router.delete(`/students/${student.id}`);
+        }
+    }
+
+    function resetPassword() {
+        if (window.confirm(`Reset ${student.name}'s password to the default? They will have to choose a new one the next time they sign in.`)) {
+            router.post(`/students/${student.id}/reset-password`, {}, { preserveScroll: true });
         }
     }
 
@@ -146,6 +152,7 @@ export default function StudentShow({ student, canEdit, canDelete, canEnrol, can
                     <div className="flex flex-wrap gap-2">
                         <Link href={`/students/${student.id}/id-card`} className="rounded-xl border border-teal-200 px-4 py-2.5 text-center text-sm font-semibold text-teal-800 hover:bg-teal-50">View ID card</Link>
                         {canEdit && <Link href={`/students/${student.id}/edit`} className="rounded-xl border border-slate-200 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">Edit profile</Link>}
+                        {canResetPassword && <button type="button" onClick={resetPassword} className="rounded-xl border border-amber-200 px-4 py-2.5 text-center text-sm font-semibold text-amber-800 hover:bg-amber-50">Reset password</button>}
                         {canDelete && <button type="button" onClick={deleteStudent} className="rounded-xl border border-rose-200 px-4 py-2.5 text-center text-sm font-semibold text-rose-700 hover:bg-rose-50">Delete student</button>}
                     </div>
                 </div>

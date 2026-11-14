@@ -6,6 +6,7 @@ import SuppliesNav from '../../../Components/Supplies/SuppliesNav';
 import Pill from '../../../Components/Supplies/Pill';
 import { Field, inputClass } from '../../Auth/Login';
 import { REQUIREMENT_STATUS } from '../../../lib/supplies';
+import Pagination from '../../../Components/Pagination';
 
 export default function RequirementsIndex({ academicYears, selectedAcademicYearId, classes, selectedClassId, completion, can }) {
     const [marking, setMarking] = useState(null);
@@ -19,7 +20,8 @@ export default function RequirementsIndex({ academicYears, selectedAcademicYearI
     }
 
     const selectedClass = classes.find((item) => item.id === selectedClassId);
-    const students = completion?.students || [];
+    const studentPaginator = completion?.students;
+    const students = studentPaginator?.data || [];
     const completeCount = students.filter((student) => student.complete).length;
 
     return (
@@ -42,7 +44,7 @@ export default function RequirementsIndex({ academicYears, selectedAcademicYearI
             ) : (
                 <>
                     <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold text-slate-900">{selectedClass?.name}: what is expected</h2>{students.length > 0 && <span className="text-sm text-slate-600">{completeCount} of {students.length} students have all required items</span>}</div>
+                        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold text-slate-900">{selectedClass?.name}: what is expected</h2>{students.length > 0 && <span className="text-sm text-slate-600">{completeCount} of {students.length} students on this page have all required items</span>}</div>
                         {completion.requirements.length === 0 ? <p className="mt-4 rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-500">No requirements set for this class yet.</p> : (
                             <div className="mt-4 overflow-x-auto">
                                 <table className="w-full min-w-[640px] text-left text-sm">
@@ -99,6 +101,7 @@ export default function RequirementsIndex({ academicYears, selectedAcademicYearI
                                     </table>
                                 </div>
                             )}
+                            {students.length > 0 && studentPaginator && <Pagination links={studentPaginator.links} from={studentPaginator.from} to={studentPaginator.to} total={studentPaginator.total} />}
                         </section>
                     )}
                 </>

@@ -438,12 +438,12 @@ test('teachers see only assigned classes, sections, and subjects', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Classes/Index')
-            ->has('classes', 1)
-            ->where('classes.0.id', $assignedClass->id)
-            ->has('classes.0.sections', 1)
-            ->where('classes.0.sections.0.id', $assignedSection->id)
-            ->has('classes.0.subjects', 1)
-            ->where('classes.0.subjects.0.id', $assignedSubject->id));
+            ->has('classes.data', 1)
+            ->where('classes.total', 1)
+            ->where('classes.data.0.id', $assignedClass->id)
+            ->where('classes.data.0.sectionsCount', 1)
+            ->where('classes.data.0.subjectsCount', 1)
+            ->where('classes.data.0.studentsCount', 0));
 
     $this->actingAs($staff->user)->get('/subjects')
         ->assertOk()

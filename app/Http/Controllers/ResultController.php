@@ -7,12 +7,13 @@ use App\Models\Enrolment;
 use App\Models\Exam;
 use App\Models\ExamSubject;
 use App\Models\Student;
+use App\Services\ReportCardService;
 use App\Services\SchoolSettingsService;
 use App\Services\SupplyRequirementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use App\Services\ReportCardService;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -56,7 +57,7 @@ class ResultController extends Controller
             ])->values() : [],
             'selectedStudentId' => $selectedStudentId,
             'bookRequirements' => $mode === 'parent' && $student
-                ? $this->bookRequirements($student, $requirements)
+                ? $this->bookRequirements($student, $requirements, paginateItems: true)
                 : null,
             'results' => $this->resultsQuery($student, $request->integer('academic_year_id') ?: null)
                 ->paginate(20)
@@ -101,7 +102,7 @@ class ResultController extends Controller
     public function reportCard(Request $request, Exam $exam, ReportCardService $reports): Response
     {
         [$mode, $student, $header, $card] = $this->reportCardData($request, $exam, $reports);
-    
+
         return Inertia::render('Results/ReportCard', [
             'mode' => $mode,
             'studentId' => $mode === 'parent' ? $student->id : null,
@@ -113,7 +114,7 @@ class ResultController extends Controller
     public function downloadReportCard(Request $request, Exam $exam, ReportCardService $reports): HttpResponse
     {
         [, $student, $header, $card] = $this->reportCardData($request, $exam, $reports);
-    
+
         return Pdf::loadView('pdf.report-card', [
             'exam' => $header,
             'card' => $card,
@@ -149,11 +150,11 @@ class ResultController extends Controller
     {
         [$mode, , , $student] = $this->portalContext($request);
         abort_unless($student, 404);
-    
+
         $published = $this->resultsQuery($student, null)->whereKey($exam->id)->firstOrFail();
         $card = $reports->forExam($published, $student->id)->first();
         abort_unless($card, 404);
-    
+
         return [$mode, $student, $reports->header($published), $card];
     }
 
@@ -163,10 +164,13 @@ class ResultController extends Controller
     }
 
     /**
-     * @return array{academicYear: string, className: string, complete: bool, items: list<array<string, mixed>>}|null
+     * @return array{academicYear: string, className: string, complete: bool, items: list<array<string, mixed>>|LengthAwarePaginator}|null
      */
-    private function bookRequirements(Student $student, SupplyRequirementService $service): ?array
-    {
+    private function bookRequirements(
+        Student $student,
+        SupplyRequirementService $service,
+        bool $paginateItems = false,
+    ): ?array {
         $year = AcademicYear::active()->first();
         $enrolment = $year
             ? Enrolment::query()
@@ -184,21 +188,39 @@ class ResultController extends Controller
         $completion = $service->completion($year, $enrolment->schoolClass, $student->id);
         $studentProgress = collect($completion['students'])->firstWhere('studentId', $student->id);
 
+        $items = collect($completion['requirements'])->map(fn (array $requirement): array => [
+            'id' => $requirement['id'],
+            'itemName' => $requirement['itemName'],
+            'unit' => $requirement['unit'],
+            'quantity' => $requirement['quantity'],
+            'isRequired' => $requirement['isRequired'],
+            'termName' => $requirement['termName'],
+            'notes' => $requirement['notes'],
+            'purchased' => $studentProgress['lines'][$requirement['id']]['purchased'] ?? 0,
+            'outstanding' => $studentProgress['lines'][$requirement['id']]['outstanding'] ?? $requirement['quantity'],
+        ])->values();
+
+        if ($paginateItems) {
+            $pageName = 'book_requirements_page';
+            $currentPage = LengthAwarePaginator::resolveCurrentPage($pageName);
+            $items = new LengthAwarePaginator(
+                $items->forPage($currentPage, 15)->values(),
+                $items->count(),
+                15,
+                $currentPage,
+                [
+                    'path' => LengthAwarePaginator::resolveCurrentPath(),
+                    'pageName' => $pageName,
+                ],
+            );
+            $items->withQueryString();
+        }
+
         return [
             'academicYear' => $year->name,
             'className' => $enrolment->schoolClass->name,
             'complete' => $studentProgress['complete'] ?? true,
-            'items' => collect($completion['requirements'])->map(fn (array $requirement): array => [
-                'id' => $requirement['id'],
-                'itemName' => $requirement['itemName'],
-                'unit' => $requirement['unit'],
-                'quantity' => $requirement['quantity'],
-                'isRequired' => $requirement['isRequired'],
-                'termName' => $requirement['termName'],
-                'notes' => $requirement['notes'],
-                'purchased' => $studentProgress['lines'][$requirement['id']]['purchased'] ?? 0,
-                'outstanding' => $studentProgress['lines'][$requirement['id']]['outstanding'] ?? $requirement['quantity'],
-            ])->values()->all(),
+            'items' => $paginateItems ? $items : $items->all(),
         ];
     }
 

@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
 import ResultCard from '../../Components/Exams/ResultCard';
+import Pagination from '../../Components/Pagination';
 import { Field, inputClass } from '../Auth/Login';
 
 export default function ResultsIndex({ mode, results, academicYears, selectedAcademicYearId, students, selectedStudentId, bookRequirements }) {
@@ -81,7 +82,7 @@ export default function ResultsIndex({ mode, results, academicYears, selectedAca
                             </div>
                         )}
                     </div>
-                    {bookRequirements && (bookRequirements.items.length === 0 ? (
+                    {bookRequirements && (bookRequirements.items.data.length === 0 ? (
                         <p className="mt-4 rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-500">No book requirements are set for this class.</p>
                     ) : (
                         <div className="mt-4 overflow-x-auto">
@@ -96,7 +97,7 @@ export default function ResultsIndex({ mode, results, academicYears, selectedAca
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {bookRequirements.items.map((item) => (
+                                    {bookRequirements.items.data.map((item) => (
                                         <tr key={item.id}>
                                             <td className="py-3 pr-4 text-slate-800">
                                                 {item.itemName}
@@ -113,6 +114,9 @@ export default function ResultsIndex({ mode, results, academicYears, selectedAca
                             </table>
                         </div>
                     ))}
+                    {bookRequirements && (
+                        <Pagination links={bookRequirements.items.links} from={bookRequirements.items.from} to={bookRequirements.items.to} total={bookRequirements.items.total} />
+                    )}
                 </section>
             )}
 
@@ -138,20 +142,7 @@ export default function ResultsIndex({ mode, results, academicYears, selectedAca
                 </div>
             )}
 
-            {results.links.length > 3 && (
-                <nav aria-label="Results pages" className="mt-6 flex flex-wrap gap-2">
-                    {results.links.map((link, index) => (
-                        <Link
-                            key={`${link.label}-${index}`}
-                            href={link.url || '#'} 
-                            preserveScroll
-                            className={`rounded-lg px-3 py-2 text-sm ${link.active ? 'bg-teal-700 text-white' : 'border border-slate-200 bg-white text-slate-700'} ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
-                        >
-                            {link.label.replace('&laquo;', '‹').replace('&raquo;', '›')}
-                        </Link>
-                    ))}
-                </nav>
-            )}
+            <Pagination links={results.links} from={results.from} to={results.to} total={results.total} />
         </AppLayout>
     );
 }

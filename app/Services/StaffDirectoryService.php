@@ -20,7 +20,7 @@ class StaffDirectoryService
         'Teacher',
         'Principal',
         'Accountant',
-        'Librarian',
+        'Book Keeper',
         'Receptionist',
     ];
 

@@ -17,26 +17,28 @@ class PermissionController extends Controller
 {
     public function index(): Response
     {
-        return Inertia::render('Permissions/Index', [
-            'groups' => Permission::query()
-                ->where('guard_name', 'web')
-                ->orderBy('name')
-                ->withCount([
-                    'roles as assigned_role_count' => fn ($query) => $query->where('name', '!=', 'Super Admin'),
-                ])
-                ->get(['id', 'name', 'is_system'])
-                ->groupBy(fn (Permission $permission): string => str($permission->name)->before('.')->toString())
-                ->map(fn ($group): array => $group
-                    ->map(fn (Permission $permission): array => [
-                        'id' => $permission->id,
-                        'name' => $permission->name,
-                        'roleCount' => $permission->assigned_role_count,
-                        'isSystem' => (bool) $permission->is_system,
-                    ])
-                    ->values()
-                    ->all())
-                ->all(),
-        ]);
+        $groups = Permission::query()
+            ->where('guard_name', 'web')
+            ->orderBy('name')
+            ->withCount([
+                'roles as assigned_role_count' => fn ($query) => $query->where('name', '!=', 'Super Admin'),
+            ])
+            ->paginate(15)
+            ->withQueryString();
+        $groups->setCollection($groups->getCollection()
+            ->groupBy(fn (Permission $permission): string => str($permission->name)->before('.')->toString())
+            ->map(fn ($group, string $name): array => [
+                'name' => $name,
+                'items' => $group->map(fn (Permission $permission): array => [
+                    'id' => $permission->id,
+                    'name' => $permission->name,
+                    'roleCount' => $permission->assigned_role_count,
+                    'isSystem' => (bool) $permission->is_system,
+                ])->values()->all(),
+            ])
+            ->values());
+
+        return Inertia::render('Permissions/Index', ['groups' => $groups]);
     }
 
     public function store(StorePermissionRequest $request, AuditLogService $auditLogs): RedirectResponse

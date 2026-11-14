@@ -1,5 +1,7 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
+import EmptyState from '../../Components/EmptyState';
+import ReportFilterPanel from '../../Components/Reports/ReportFilterPanel';
 import { inputClass } from '../Auth/Login';
 
 export default function FinancialReport({
@@ -39,7 +41,7 @@ export default function FinancialReport({
         >
             <Head title="Fee collection report" />
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <ReportFilterPanel description="Choose the year, class, and date range for payment transactions.">
                 <form method="GET" action="/reports/financial" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <label className="grid gap-1.5 text-sm font-medium text-slate-700">
                         Academic year
@@ -78,7 +80,7 @@ export default function FinancialReport({
                         )}
                     </div>
                 </form>
-            </section>
+            </ReportFilterPanel>
 
             <section aria-label="Fee collection totals" className="mt-6 grid gap-3 sm:grid-cols-2">
                 <article className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -97,9 +99,8 @@ export default function FinancialReport({
                     <p className="text-sm text-slate-500">{payments.total.toLocaleString()} matching receipts</p>
                 </div>
                 {payments.data.length === 0 ? (
-                    <div className="px-6 py-12 text-center">
-                        <p className="font-medium text-slate-800">No payments found</p>
-                        <p className="mt-1 text-sm text-slate-500">Try another date range or class, or record a payment first.</p>
+                    <div className="p-5 sm:p-6">
+                        <EmptyState title="No payments found" detail="Try another date range or class, or record a payment first." />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

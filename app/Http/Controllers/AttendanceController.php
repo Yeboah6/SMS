@@ -11,6 +11,7 @@ use App\Models\Section;
 use App\Models\Staff;
 use App\Models\Student;
 use App\Services\AttendanceService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -35,13 +36,14 @@ class AttendanceController extends Controller
         $years = AcademicYear::query()->orderByDesc('start_date')->get();
         $year = $this->selectedYear($request, $years);
         $date = $this->attendanceDate($request, $year);
-        $sections = $this->visibleSections($request, $year);
+        $visibleSections = $this->visibleSectionsQuery($request, $year);
+        $sections = (clone $visibleSections)->paginate(15)->withQueryString();
 
         $attendances = $year
             ? Attendance::query()
                 ->where('academic_year_id', $year->id)
                 ->whereDate('attendance_date', $date)
-                ->whereIn('section_id', $sections->modelKeys())
+                ->whereIn('section_id', $sections->getCollection()->modelKeys())
                 ->get(['id', 'section_id'])
                 ->keyBy('section_id')
             : collect();
@@ -54,7 +56,7 @@ class AttendanceController extends Controller
                 ->get()
                 ->groupBy('attendance_id');
 
-        $registers = $sections->map(function (Section $section) use ($attendances, $counts): array {
+        $registers = $sections->through(function (Section $section) use ($attendances, $counts): array {
             $attendance = $attendances->get($section->id);
             $byStatus = $attendance ? $counts->get($attendance->id, collect())->pluck('total', 'status') : collect();
 
@@ -69,7 +71,16 @@ class AttendanceController extends Controller
                 'late' => (int) $byStatus->get('late', 0),
                 'excused' => (int) $byStatus->get('excused', 0),
             ];
-        })->values();
+        });
+        $totalSections = (clone $visibleSections)->count();
+        $takenSections = $year
+            ? Attendance::query()
+                ->where('academic_year_id', $year->id)
+                ->whereDate('attendance_date', $date)
+                ->whereIn('section_id', (clone $visibleSections)->select('id'))
+                ->distinct()
+                ->count('section_id')
+            : 0;
 
         $open = $year && $year->status !== AcademicYearStatus::Locked;
 
@@ -85,9 +96,9 @@ class AttendanceController extends Controller
             'attendanceDate' => $date->toDateString(),
             'registers' => $registers,
             'summary' => [
-                'sections' => $registers->count(),
-                'taken' => $registers->where('taken', true)->count(),
-                'missing' => $registers->where('taken', false)->count(),
+                'sections' => $totalSections,
+                'taken' => $takenSections,
+                'missing' => max(0, $totalSections - $takenSections),
             ],
             'yearLocked' => $year !== null && ! $open,
             'can' => [
@@ -250,24 +261,24 @@ class AttendanceController extends Controller
 
     private function visibleSections(Request $request, ?AcademicYear $year): Collection
     {
-        if (! $year) {
-            return collect();
-        }
+        return $year ? $this->visibleSectionsQuery($request, $year)->get() : collect();
+    }
 
+    private function visibleSectionsQuery(Request $request, ?AcademicYear $year): Builder
+    {
         $user = $request->user();
 
         return Section::query()
             ->with('schoolClass:id,name')
-            ->where('academic_year_id', $year->id)
-            ->when($user->hasRole('Teacher') && ! $user->hasRole('Super Admin'), function ($query) use ($user, $year): void {
+            ->when($year, fn ($query) => $query->where('academic_year_id', $year->id), fn ($query) => $query->whereRaw('1 = 0'))
+            ->when($year && $user->hasRole('Teacher') && ! $user->hasRole('Super Admin'), function ($query) use ($user, $year): void {
                 $staffId = Staff::query()->where('user_id', $user->id)->value('id');
                 $query->whereHas('teacherClassAssignments', fn ($assignments) => $assignments
                     ->forAcademicYear($year)
                     ->where('staff_id', $staffId ?? 0));
             })
             ->orderBy('class_id')
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
     }
 
     private function authorizeRegister(Request $request, Attendance $attendance): void

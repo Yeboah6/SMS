@@ -1,6 +1,7 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import AppLayout from '../../Layouts/AppLayout';
 import { Field, inputClass } from '../Auth/Login';
 
@@ -40,8 +41,6 @@ export default function LeaveRequestsIndex({
     students,
     activeStatus = 'all',
 }) {
-    const { status: flashStatus, errors = {} } = usePage().props;
-    const pageErrors = Object.values(errors).flat();
     const [reviewComments, setReviewComments] = useState({});
     const [showForm, setShowForm] = useState(false);
 
@@ -107,12 +106,7 @@ export default function LeaveRequestsIndex({
     return (
         <AppLayout title="Leave requests" description={isPortal ? 'Request leave for yourself or a linked student.' : 'Submit staff leave and review pending requests.'}>
             <Head title="Leave requests" />
-            {flashStatus && <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{flashStatus}</div>}
-            {pageErrors.length > 0 && (
-                <div role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                    {pageErrors.map((error) => <p key={error}>{error}</p>)}
-                </div>
-            )}
+            <PageAlerts />
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 <div className="border-b border-slate-100 px-5 py-4 sm:px-6">

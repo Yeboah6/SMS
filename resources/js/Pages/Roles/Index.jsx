@@ -1,11 +1,20 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import AppLayout from '../../Layouts/AppLayout';
+import Pagination from '../../Components/Pagination';
 
 export default function RolesIndex({ roles, permissionGroups }) {
-    const { auth, status, errors = {} } = usePage().props;
-    const [selectedRole, setSelectedRole] = useState(roles[0]?.id ?? null);
-    const selected = roles.find((role) => role.id === selectedRole);
+    const roleItems = roles.data || [];
+    const { auth } = usePage().props;
+    const [selectedRole, setSelectedRole] = useState(roleItems[0]?.id ?? null);
+    const selected = roleItems.find((role) => role.id === selectedRole);
+
+    useEffect(() => {
+        if (!roleItems.some((role) => role.id === selectedRole)) {
+            setSelectedRole(roleItems[0]?.id ?? null);
+        }
+    }, [roleItems, selectedRole]);
     const canManagePermissions = auth.user.permissions.includes('permissions.assign')
         && auth.user.permissions.includes('roles.update');
     const canCreate = auth.user.permissions.includes('roles.create');
@@ -24,15 +33,14 @@ export default function RolesIndex({ roles, permissionGroups }) {
 
         router.delete(`/roles/${role.id}`, {
             preserveScroll: true,
-            onSuccess: () => setSelectedRole(roles.find((item) => item.id !== role.id)?.id ?? null),
+            onSuccess: () => setSelectedRole(roleItems.find((item) => item.id !== role.id)?.id ?? null),
         });
     }
 
     return (
         <AppLayout title="Roles & permissions" description="Review school roles and grant only the permissions each role needs.">
             <Head title="Roles & permissions" />
-            {status && <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{status}</div>}
-            {errors.role && <div role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{errors.role}</div>}
+            <PageAlerts />
             <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
                 <section className="h-fit rounded-2xl border border-slate-200 bg-white p-3">
                     <h2 className="px-3 py-3 text-sm font-semibold text-slate-800">School roles</h2>
@@ -59,7 +67,7 @@ export default function RolesIndex({ roles, permissionGroups }) {
                         </form>
                     )}
                     <div className="space-y-1">
-                        {roles.map((role) => (
+                        {roleItems.map((role) => (
                             <button
                                 key={role.id}
                                 type="button"
@@ -76,6 +84,7 @@ export default function RolesIndex({ roles, permissionGroups }) {
                             </button>
                         ))}
                     </div>
+                    <Pagination links={roles.links} from={roles.from} to={roles.to} total={roles.total} />
                     <p className="mx-3 mt-4 border-t border-slate-100 pt-4 text-xs leading-5 text-slate-500">
                         The eight primary role names are fixed. Custom roles can be created and assigned without changing the primary role set.
                     </p>

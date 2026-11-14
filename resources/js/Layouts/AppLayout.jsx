@@ -10,13 +10,15 @@ import {
     Menu,
     CalendarDays,
     ChevronRight,
-    Search,
     UsersRound,
     ShieldCheck,
     SlidersHorizontal,
     X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { PageAlertsProvider } from '../Components/Exams/PageAlerts';
+import GlobalSearch from '../Components/GlobalSearch';
+import NoticeBell from '../Components/NoticeBell';
 
 const navigation = [
     { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -103,7 +105,7 @@ function isNavigationItemActive(item, activePath) {
 }
 
 export default function AppLayout({ children, title, description }) {
-    const { appName, auth, activeAcademicYear, schoolSettings, schoolLogoUrl } = usePage().props;
+    const { appName, auth, activeAcademicYear, schoolSettings, schoolLogoUrl, recentNotices } = usePage().props;
     const [menuOpen, setMenuOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const activePath = usePage().url.split('?')[0];
@@ -133,7 +135,7 @@ export default function AppLayout({ children, title, description }) {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-900">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-teal-50/40 text-slate-900">
             {menuOpen && (
                 <button
                     type="button"
@@ -143,7 +145,7 @@ export default function AppLayout({ children, title, description }) {
                 />
             )}
             <aside
-                className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform lg:translate-x-0 ${
+                className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-slate-200 bg-white/95 shadow-sm backdrop-blur-xl transition-transform lg:translate-x-0 ${
                     menuOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >
@@ -168,7 +170,7 @@ export default function AppLayout({ children, title, description }) {
                     <button
                         type="button"
                         aria-label="Close navigation"
-                        className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
+                        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 lg:hidden"
                         onClick={() => setMenuOpen(false)}
                     >
                         <X size={18} />
@@ -185,6 +187,8 @@ export default function AppLayout({ children, title, description }) {
                                 const GroupIcon = item.icon;
                                 const expanded = expandedGroups[item.label] ?? false;
 
+                                const groupSelected = item.children.some((child) => isNavigationItemActive(child, activePath));
+
                                 return (
                                     <div key={item.label}>
                                         <button
@@ -194,9 +198,11 @@ export default function AppLayout({ children, title, description }) {
                                                 ...groups,
                                                 [item.label]: !expanded,
                                             }))}
-                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 ${
+                                                groupSelected ? 'text-teal-900' : 'text-slate-600'
+                                            } hover:bg-slate-50 hover:text-slate-950`}
                                         >
-                                            <GroupIcon size={18} strokeWidth={1.8} />
+                                            <GroupIcon size={18} strokeWidth={1.8} className={groupSelected ? 'text-teal-700' : ''} />
                                             <span className="flex-1">{item.label}</span>
                                             <ChevronRight
                                                 size={16}
@@ -217,11 +223,11 @@ export default function AppLayout({ children, title, description }) {
                                                             aria-current={selected ? 'page' : undefined}
                                                             className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                                                                 selected
-                                                                    ? 'bg-teal-50 text-teal-800'
+                                                                    ? 'bg-teal-50 font-semibold text-teal-900 shadow-sm shadow-teal-900/5 ring-1 ring-inset ring-teal-100'
                                                                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
                                                             }`}
                                                         >
-                                                            <ChildIcon size={17} strokeWidth={1.8} />
+                                                            <ChildIcon size={17} strokeWidth={1.8} className={selected ? 'text-teal-700' : ''} />
                                                             {child.label}
                                                         </Link>
                                                     );
@@ -243,11 +249,11 @@ export default function AppLayout({ children, title, description }) {
                                     aria-current={selected ? 'page' : undefined}
                                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                                         selected
-                                            ? 'bg-teal-50 text-teal-800'
+                                            ? 'bg-teal-50 font-semibold text-teal-900 shadow-sm shadow-teal-900/5 ring-1 ring-inset ring-teal-100'
                                             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
                                     }`}
                                 >
-                                    <Icon size={18} strokeWidth={1.8} />
+                                    <Icon size={18} strokeWidth={1.8} className={selected ? 'text-teal-700' : ''} />
                                     {item.label}
                                 </Link>
                             );
@@ -268,45 +274,35 @@ export default function AppLayout({ children, title, description }) {
                 </div>
             </aside>
 
-            <div className="lg:pl-72">
-                <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-9">
+            <div className="min-w-0 lg:pl-72">
+                <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 shadow-sm shadow-slate-900/[0.03] backdrop-blur-xl sm:px-6 lg:px-9">
                     <div className="flex min-w-0 items-center gap-3">
                         <button
                             type="button"
                             aria-label="Open navigation"
-                            className="rounded-xl p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+                            className="rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 lg:hidden"
                             onClick={() => setMenuOpen(true)}
                         >
                             <Menu size={20} />
                         </button>
-                        <div className="hidden h-10 w-full max-w-sm items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-slate-400 sm:flex">
-                            <Search size={17} />
-                            <span className="text-sm">Search will be available with modules</span>
-                        </div>
-                        <div className="sm:hidden">
-                            <p className="truncate text-sm font-semibold text-slate-900">{title}</p>
-                        </div>
+                        <GlobalSearch navigation={visibleNavigation} />
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-                        <div className="hidden items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 md:flex">
-                            <span className="size-1.5 rounded-full bg-amber-500" />
+                        <div className={`hidden items-center gap-2 rounded-full border px-3 py-1.5 md:flex ${
+                            activeAcademicYear ? 'border-teal-200 bg-teal-50' : 'border-amber-200 bg-amber-50'
+                        }`}>
+                            <span className={`size-1.5 rounded-full ${activeAcademicYear ? 'bg-teal-500' : 'bg-amber-500'}`} />
                             <span className={`text-xs font-medium ${activeAcademicYear ? 'text-teal-900' : 'text-amber-900'}`}>
                                 {activeAcademicYear ? activeAcademicYear.name : 'Academic year not configured'}
                             </span>
                         </div>
-                        <span
-                            aria-label="Notifications are not configured in this phase"
-                            title="Notifications are not configured yet"
-                            className="rounded-xl p-2.5 text-slate-300"
-                        >
-                            <Bell size={19} />
-                        </span>
+                        <NoticeBell notices={recentNotices} />
                         <div className="relative">
                             <button
                                 type="button"
                                 aria-expanded={userMenuOpen}
-                                className="flex items-center gap-2 rounded-xl p-1.5 text-left hover:bg-slate-50"
+                                className="flex items-center gap-2 rounded-xl p-1.5 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
                                 onClick={() => setUserMenuOpen((open) => !open)}
                             >
                                 <span className="flex size-9 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-800">
@@ -323,7 +319,7 @@ export default function AppLayout({ children, title, description }) {
                                 <ChevronDown size={15} className="hidden text-slate-400 sm:block" />
                             </button>
                             {userMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg shadow-slate-900/10">
+                                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
                                     <Link
                                       href="/profile"
                                       onClick={() => setUserMenuOpen(false)}
@@ -346,17 +342,17 @@ export default function AppLayout({ children, title, description }) {
                     </div>
                 </header>
 
-                <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-9 lg:py-10">
+                <main className="mx-auto min-w-0 w-full max-w-[1520px] px-4 py-7 sm:px-6 lg:px-9 lg:py-9">
                     <div className="mb-8 hidden sm:block">
-                        <p className="mb-2 text-sm font-medium text-slate-500">
-                            School workspace <span className="px-1 text-slate-300">/</span> Overview
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            School workspace <span className="px-1.5 text-slate-300">/</span> <span className="normal-case tracking-normal text-slate-500">{title}</span>
                         </p>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-950">{title}</h1>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-950 lg:text-[1.75rem]">{title}</h1>
                         {description && (
-                            <p className="mt-1.5 text-sm text-slate-500">{description}</p>
+                            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>
                         )}
                     </div>
-                    {children}
+                    <PageAlertsProvider>{children}</PageAlertsProvider>
                 </main>
             </div>
         </div>

@@ -17,11 +17,11 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\ExamController;
 use App\Http\Controllers\ExamMarkController;
-use App\Http\Controllers\ReportCardController;
 use App\Http\Controllers\FeeController;
 use App\Http\Controllers\FeeHeadController;
 use App\Http\Controllers\FeeStructureController;
 use App\Http\Controllers\FinancialReportController;
+use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\GuardianAccountController;
 use App\Http\Controllers\HomeworkController;
 use App\Http\Controllers\InventoryItemController;
@@ -30,12 +30,14 @@ use App\Http\Controllers\LeaveRequestController;
 use App\Http\Controllers\LibraryController;
 use App\Http\Controllers\LibraryLoanController;
 use App\Http\Controllers\NoticeController;
+use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PublicEnquiryController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\ReportCardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RequirementController;
 use App\Http\Controllers\ResultController;
@@ -82,15 +84,22 @@ Route::put('/settings/notifications', [SchoolSettingsController::class, 'updateN
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/global-search', GlobalSearchController::class)->name('global-search');
     Route::get('/academic-years', [AcademicYearController::class, 'index'])->name('academic-years.index');
+    Route::get('/academic-years/create', [AcademicYearController::class, 'create'])->name('academic-years.create');
     Route::post('/academic-years', [AcademicYearController::class, 'store'])->name('academic-years.store');
     Route::get('/academic-years/{academicYear}', [AcademicYearController::class, 'show'])->name('academic-years.show');
+    Route::get('/academic-years/{academicYear}/edit', [AcademicYearController::class, 'edit'])->name('academic-years.edit');
     Route::patch('/academic-years/{academicYear}', [AcademicYearController::class, 'update'])->name('academic-years.update');
     Route::delete('/academic-years/{academicYear}', [AcademicYearController::class, 'destroy'])->name('academic-years.destroy');
     Route::post('/academic-years/{academicYear}/activate', [AcademicYearController::class, 'activate'])->name('academic-years.activate');
     Route::post('/academic-years/{academicYear}/complete', [AcademicYearController::class, 'complete'])->name('academic-years.complete');
     Route::post('/academic-years/{academicYear}/lock', [AcademicYearController::class, 'lock'])->name('academic-years.lock');
     Route::post('/academic-years/{academicYear}/terms', [AcademicYearController::class, 'storeTerm'])->name('academic-years.terms.store');
+    Route::patch('/academic-years/{academicYear}/terms/{term}', [AcademicYearController::class, 'updateTerm'])
+        ->scopeBindings()->name('academic-years.terms.update');
+    Route::delete('/academic-years/{academicYear}/terms/{term}', [AcademicYearController::class, 'destroyTerm'])
+        ->scopeBindings()->name('academic-years.terms.destroy');
 
     Route::resource('classes', SchoolClassController::class)
         ->parameters(['classes' => 'schoolClass']);
@@ -192,7 +201,10 @@ Route::middleware('auth')->group(function (): void {
     Route::resource('designations', DesignationController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 
     Route::get('/promotions', [PromotionController::class, 'index'])->name('promotions.index');
+    Route::get('/promotions/create', [PromotionController::class, 'create'])->name('promotions.create');
     Route::post('/promotions', [PromotionController::class, 'store'])->name('promotions.store');
+    Route::get('/promotions/{promotion}', [PromotionController::class, 'show'])->name('promotions.show');
+    Route::post('/promotions/{promotion}/reverse', [PromotionController::class, 'reverse'])->name('promotions.reverse');
 
     Route::get('/students/export', [StudentController::class, 'export'])->name('students.export');
     Route::get('/students/import', [StudentImportController::class, 'create'])->name('students.import.create');
@@ -237,6 +249,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
+    Route::get('/profile/password', [PasswordController::class, 'edit'])->name('profile.password.edit');
+    Route::put('/profile/password', [PasswordController::class, 'update'])->name('profile.password.update');
+    Route::post('/students/{student}/reset-password', [StudentController::class, 'resetPassword'])->name('students.reset-password');
 });
 
 Route::prefix('supplies')->name('supplies.')->group(function (): void {

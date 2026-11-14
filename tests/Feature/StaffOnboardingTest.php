@@ -51,6 +51,7 @@ test('staff creation emails a valid password setup link without exposing the ran
 
     expect($staff->user_id)->toBe($account->id)
         ->and($account->hasRole('Teacher'))->toBeTrue()
+        ->and($account->must_change_password)->toBeFalse()
         ->and($account->password)->not->toBeEmpty();
 
     Notification::assertSentToOnce(

@@ -1,8 +1,8 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import AppLayout from '../../Layouts/AppLayout';
 
 export default function StudentNotesShow({ student, note, canEdit, canDelete }) {
-    const { status } = usePage().props;
     const deleteForm = useForm({});
 
     function deleteNote() {
@@ -14,7 +14,7 @@ export default function StudentNotesShow({ student, note, canEdit, canDelete }) 
     return (
         <AppLayout title={note.title} description={`${student.name} · Student note`}>
             <Head title={note.title} />
-            {status && <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{status}</div>}
+            <PageAlerts />
             <article className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>

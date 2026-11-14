@@ -2,8 +2,10 @@ import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
 import EmptyState from '../../Components/EmptyState';
 import StatusBanner from '../../Components/StatusBanner';
+import Pagination from '../../Components/Pagination';
 
 export default function ClassesIndex({ years, selectedYearId, yearLocked, classes, can }) {
+    const classItems = classes.data || [];
     const yearId = String(selectedYearId || '');
 
     function selectYear(event) {
@@ -40,13 +42,13 @@ export default function ClassesIndex({ years, selectedYearId, yearLocked, classe
 
             {!yearId ? (
                 <EmptyState title="Select an academic year" detail="Choose a year above to view or create its class structure." />
-            ) : classes.length === 0 ? (
+            ) : classItems.length === 0 ? (
                 <EmptyState title="No classes for this year" detail="Create a class to start configuring sections and subjects.">
                     {can.create && !yearLocked && <Link href={`/classes/create?academic_year_id=${yearId}`} className="text-sm font-semibold text-teal-800 hover:text-teal-950">New class</Link>}
                 </EmptyState>
             ) : (
                 <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {classes.map((schoolClass) => (
+                    {classItems.map((schoolClass) => (
                         <li key={schoolClass.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5">
                             <Link href={`/classes/${schoolClass.id}`} className="text-lg font-semibold text-slate-950 hover:text-teal-800">{schoolClass.name}</Link>
                             <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -63,6 +65,7 @@ export default function ClassesIndex({ years, selectedYearId, yearLocked, classe
                     ))}
                 </ul>
             )}
+            {yearId && classItems.length > 0 && <Pagination links={classes.links} from={classes.from} to={classes.to} total={classes.total} />}
         </AppLayout>
     );
 }

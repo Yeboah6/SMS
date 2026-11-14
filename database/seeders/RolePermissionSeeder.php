@@ -45,6 +45,8 @@ class RolePermissionSeeder extends Seeder
         'students.enrol',
         'students.export',
         'students.transfer',
+        'students.transfer',
+        'students.reset_password',
         'guardians.delete',
         'students.documents.manage',
         'student_notes.update',
@@ -69,7 +71,7 @@ class RolePermissionSeeder extends Seeder
             'admissions.documents.manage', 'admissions.followups.manage', 'attendance.view',
             'attendance.mark', 'attendance.update',
             'students.promote', 'students.promote.override',
-            'students.transfer',
+            'students.transfer', 'students.transfer', 'students.reset_password',
             'leave.view', 'leave.approve', 'classes.view', 'sections.view', 'subjects.view',
             'staff.view', 'exams.view', 'exams.create', 'timetable.manage', 'timetable.view',
             'marks.view', 'marks.publish', 'marks.reopen',
@@ -108,16 +110,16 @@ class RolePermissionSeeder extends Seeder
             'expenses.update', 'reports.view', 'reports.export', 'reports.financial.view',
             'reports.financial.export', 'notices.view',
         ],
-        'Librarian' => [
-            'dashboard.view', 'library.view', 'library.create', 'library.issue',
-            'library.return', 'library.renew', 'reports.view', 'notices.view',
-        ],
+        // 'Book Keeper' => [
+        //     'dashboard.view', 'library.view', 'library.create', 'library.issue',
+        //     'library.return', 'library.renew', 'reports.view', 'notices.view',
+        // ],
         'Receptionist' => [
             'dashboard.view', 'students.view', 'students.create', 'guardians.view',
             'guardians.create', 'guardians.update', 'guardians.manage_accounts', 'students.enrol', 'students.documents.manage', 'admissions.view', 'admissions.create',
             'admissions.update', 'admissions.review', 'admissions.enrol',
             'admissions.documents.manage', 'admissions.followups.manage', 'classes.view',
-            'sections.view', 'notices.view',
+            'sections.view', 'notices.view', 'students.transfer', 'students.reset_password',
         ],
     ];
 

@@ -1,9 +1,10 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { GraduationCap } from 'lucide-react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import { Field, inputClass } from '../Auth/Login';
 
 export default function PublicEnquiry() {
-    const { appName, status } = usePage().props;
+    const { appName } = usePage().props;
     const form = useForm({
         parent_name: '',
         parent_phone: '',
@@ -27,6 +28,7 @@ export default function PublicEnquiry() {
     return (
         <>
             <Head title="Admissions enquiry" />
+            <PageAlerts />
             <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6">
                 <div className="mx-auto max-w-3xl">
                     <Link href="/login" className="mb-8 inline-flex items-center gap-3">
@@ -38,7 +40,6 @@ export default function PublicEnquiry() {
                     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
                         <h1 className="text-2xl font-bold tracking-tight text-slate-950">Admissions enquiry</h1>
                         <p className="mt-2 text-sm leading-6 text-slate-500">Share a few details and our admissions team will contact you. This form does not create an account or require document uploads.</p>
-                        {status && <div role="status" className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{status}</div>}
                         <form onSubmit={submit} className="mt-6 grid gap-4 sm:grid-cols-2">
                             <Field label="Parent / guardian name" error={form.errors.parent_name}>
                                 <input autoComplete="name" value={form.data.parent_name} onChange={(event) => form.setData('parent_name', event.target.value)} className={inputClass(form.errors.parent_name)} required />

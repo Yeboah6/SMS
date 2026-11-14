@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 import PageAlerts from '../../Components/Exams/PageAlerts';
+import Pagination from '../../Components/Pagination';
 import { AUDIENCES, STATE_LABELS, audienceLabel, dateLabel, dateTimeLabel, stateOf, stateTone } from '../../lib/notices';
 
 const TABS = [['', 'All', 'all'], ['draft', 'Drafts', 'draft'], ['published', 'Published', 'published'], ['expired', 'Expired', 'expired']];
@@ -36,7 +37,7 @@ export default function NoticesIndex({ mode, notices, filters, counts, notificat
             <Head title="Notices" />
             <PageAlerts />
 
-            {notifications.length > 0 && (
+            {notifications.total > 0 && (
                 <section className="mb-6 grid gap-3 rounded-2xl border border-teal-100 bg-teal-50/60 p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
@@ -45,7 +46,7 @@ export default function NoticesIndex({ mode, notices, filters, counts, notificat
                         </div>
                         <button type="button" onClick={() => post('/notifications/read-all')} className="rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-medium text-teal-800 hover:bg-teal-50">Mark all read</button>
                     </div>
-                    {notifications.map((notification) => (
+                    {notifications.data.map((notification) => (
                         <article key={notification.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-teal-100 bg-white p-4">
                             <div>
                                 <h3 className="font-semibold text-slate-900">{notification.noticeId ? <Link href={`/notices/${notification.noticeId}`} className="hover:text-teal-800">{notification.title}</Link> : notification.title}</h3>
@@ -54,6 +55,7 @@ export default function NoticesIndex({ mode, notices, filters, counts, notificat
                             <button type="button" onClick={() => post(`/notifications/${notification.id}/read`)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Mark read</button>
                         </article>
                     ))}
+                    <Pagination links={notifications.links} from={notifications.from} to={notifications.to} total={notifications.total} />
                 </section>
             )}
 
@@ -136,15 +138,7 @@ export default function NoticesIndex({ mode, notices, filters, counts, notificat
                     </div>
                 )}
 
-                {notices.links.length > 3 && (
-                    <nav aria-label="Notice pages" className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
-                        {notices.links.map((link, index) => (
-                            <Link key={`${link.label}-${index}`} href={link.url || '#'} preserveScroll className={`rounded-lg px-3 py-2 text-sm ${link.active ? 'bg-teal-700 text-white' : 'border border-slate-200 bg-white text-slate-700'} ${!link.url ? 'pointer-events-none opacity-50' : ''}`}>
-                                {link.label.replace('&laquo;', '‹').replace('&raquo;', '›')}
-                            </Link>
-                        ))}
-                    </nav>
-                )}
+                <Pagination links={notices.links} from={notices.from} to={notices.to} total={notices.total} />
             </section>
         </AppLayout>
     );

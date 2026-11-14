@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 import StatusBanner from '../../Components/StatusBanner';
+import Pagination from '../../Components/Pagination';
 
 export default function SubjectsIndex({ subjects, filters, can }) {
     const [query, setQuery] = useState(filters.q || '');
@@ -13,10 +14,6 @@ export default function SubjectsIndex({ subjects, filters, can }) {
     function search(event) {
         event.preventDefault();
         visit(query.trim() ? { q: query.trim() } : {});
-    }
-
-    function goToPage(page) {
-        visit({ ...(filters.q ? { q: filters.q } : {}), page });
     }
 
     function deleteSubject(subject) {
@@ -68,13 +65,7 @@ export default function SubjectsIndex({ subjects, filters, can }) {
                     </ul>
                 )}
 
-                {subjects.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
-                        <button type="button" disabled={subjects.current_page <= 1} onClick={() => goToPage(subjects.current_page - 1)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">Previous</button>
-                        <span className="text-xs text-slate-500">Page {subjects.current_page} of {subjects.last_page}</span>
-                        <button type="button" disabled={subjects.current_page >= subjects.last_page} onClick={() => goToPage(subjects.current_page + 1)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">Next</button>
-                    </div>
-                )}
+                <Pagination links={subjects.links} from={subjects.from} to={subjects.to} total={subjects.total} />
             </section>
         </AppLayout>
     );

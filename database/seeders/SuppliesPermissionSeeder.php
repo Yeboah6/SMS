@@ -47,7 +47,7 @@ class SuppliesPermissionSeeder extends Seeder
                 'supplies.requirements.view', 'supplies.reports.view', 'supplies.reports.export',
             ],
             // Keeps the shop: stock, purchases, suppliers and day-to-day sales (no discounts or refunds).
-            'Librarian' => [
+            'Book Keeper' => [
                 'supplies.dashboard.view', 'supplies.items.view', 'supplies.items.create', 'supplies.items.update',
                 'supplies.categories.manage', 'supplies.suppliers.view', 'supplies.suppliers.manage',
                 'supplies.purchases.view', 'supplies.purchases.create', 'supplies.stock.view', 'supplies.stock.adjust',

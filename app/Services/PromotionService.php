@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Enums\AcademicYearStatus;
 use App\Models\AcademicYear;
+use App\Models\AttendanceRecord;
 use App\Models\Enrolment;
 use App\Models\Promotion;
 use App\Models\SchoolClass;
 use App\Models\Section;
 use App\Models\Student;
+use App\Models\StudentTransfer;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +20,50 @@ use Illuminate\Validation\ValidationException;
 class PromotionService
 {
     public function __construct(private StudentActivityService $activities) {}
+
+    public function reversalBlockReason(Promotion $promotion): ?string
+    {
+        if ($promotion->reversed_at !== null) {
+            return 'This promotion has already been reversed.';
+        }
+
+        $sourceEnrolment = $promotion->sourceEnrolment;
+        if ($sourceEnrolment === null) {
+            return 'The source enrolment for this promotion is no longer available.';
+        }
+
+        if (
+            $sourceEnrolment->status !== 'completed'
+            || $sourceEnrolment->outcome !== $promotion->outcome
+        ) {
+            return 'The source enrolment has changed since this decision was recorded.';
+        }
+
+        $targetEnrolment = $promotion->targetEnrolment;
+        if ($targetEnrolment === null) {
+            return null;
+        }
+
+        if ($targetEnrolment->status !== 'active') {
+            return 'The target enrolment has changed since this decision was recorded.';
+        }
+
+        if (AttendanceRecord::query()->where('enrolment_id', $targetEnrolment->id)->exists()) {
+            return 'This promotion cannot be reversed because attendance has been recorded for the target enrolment.';
+        }
+
+        if (
+            StudentTransfer::query()->where('enrolment_id', $targetEnrolment->id)->exists()
+            || Promotion::query()
+                ->where('source_enrolment_id', $targetEnrolment->id)
+                ->whereNull('reversed_at')
+                ->exists()
+        ) {
+            return 'This promotion cannot be reversed because the target enrolment has a subsequent transfer or promotion.';
+        }
+
+        return null;
+    }
 
     /**
      * @return Builder<Student>
@@ -30,7 +76,8 @@ class PromotionService
                 ->forAcademicYear($sourceYear)
                 ->where('status', 'active'))
             ->whereDoesntHave('enrolments', fn (Builder $enrolments) => $enrolments
-                ->forAcademicYear($targetYear))
+                ->forAcademicYear($targetYear)
+                ->where('status', '!=', 'cancelled'))
             ->with(['enrolments' => fn ($enrolments) => $enrolments
                 ->forAcademicYear($sourceYear)
                 ->with(['schoolClass:id,name', 'section:id,name'])])
@@ -150,13 +197,19 @@ class PromotionService
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('student_id');
-            $hasTargetEnrolment = Enrolment::query()
+            $targetEnrolments = Enrolment::query()
                 ->forAcademicYear($targetYear)
                 ->whereIn('student_id', $studentIds)
-                ->exists();
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('student_id');
+            $hasActiveTargetEnrolment = $targetEnrolments->contains(
+                fn (Enrolment $enrolment): bool => $enrolment->status !== 'cancelled',
+            );
 
             if (
-                $hasTargetEnrolment
+                $hasActiveTargetEnrolment
                 || $sourceEnrolments->count() !== $studentIds->count()
             ) {
                 throw ValidationException::withMessages([
@@ -184,16 +237,29 @@ class PromotionService
                     'outcome' => $outcome,
                 ]);
 
-                $targetEnrolment = $outcome === 'graduated'
-                    ? null
-                    : Enrolment::query()->create([
-                        'academic_year_id' => $targetYear->id,
-                        'student_id' => $student->id,
-                        'class_id' => $targetClass->id,
-                        'section_id' => $targetSection->id,
-                        'enrolment_date' => $targetYear->start_date,
-                        'status' => 'active',
-                    ]);
+                $targetEnrolment = null;
+                if ($outcome !== 'graduated') {
+                    $targetEnrolment = $targetEnrolments->get($student->id);
+                    if ($targetEnrolment !== null) {
+                        $targetEnrolment->update([
+                            'class_id' => $targetClass->id,
+                            'section_id' => $targetSection->id,
+                            'enrolment_date' => $targetYear->start_date,
+                            'exit_date' => null,
+                            'status' => 'active',
+                            'outcome' => null,
+                        ]);
+                    } else {
+                        $targetEnrolment = Enrolment::query()->create([
+                            'academic_year_id' => $targetYear->id,
+                            'student_id' => $student->id,
+                            'class_id' => $targetClass->id,
+                            'section_id' => $targetSection->id,
+                            'enrolment_date' => $targetYear->start_date,
+                            'status' => 'active',
+                        ]);
+                    }
+                }
 
                 $promotion = Promotion::query()->create([
                     'student_id' => $student->id,
@@ -223,6 +289,93 @@ class PromotionService
                     ],
                 );
             }
+        });
+    }
+
+    public function reverse(Promotion $promotion, string $reason, User $actor): void
+    {
+        if (! $actor->can('students.promote.override')) {
+            throw new AuthorizationException('You are not allowed to reverse student promotions.');
+        }
+
+        DB::transaction(function () use ($promotion, $reason, $actor): void {
+            $student = Student::withTrashed()
+                ->whereKey($promotion->student_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            AcademicYear::query()
+                ->whereKey([$promotion->source_academic_year_id, $promotion->target_academic_year_id])
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $enrolmentIds = array_filter([
+                $promotion->source_enrolment_id,
+                $promotion->target_enrolment_id,
+            ]);
+            $enrolments = Enrolment::query()
+                ->whereKey($enrolmentIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $lockedPromotion = Promotion::query()
+                ->whereKey($promotion->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $sourceEnrolment = $enrolments->get($lockedPromotion->source_enrolment_id);
+            $targetEnrolment = $lockedPromotion->target_enrolment_id === null
+                ? null
+                : $enrolments->get($lockedPromotion->target_enrolment_id);
+
+            if (! $sourceEnrolment || ($lockedPromotion->target_enrolment_id !== null && ! $targetEnrolment)) {
+                throw ValidationException::withMessages([
+                    'promotion' => 'This promotion no longer has the enrolments required for reversal.',
+                ]);
+            }
+
+            $blockReason = $this->reversalBlockReason($lockedPromotion->load([
+                'sourceEnrolment',
+                'targetEnrolment',
+            ]));
+
+            if ($blockReason !== null) {
+                throw ValidationException::withMessages(['promotion' => $blockReason]);
+            }
+
+            if ($targetEnrolment !== null) {
+                $targetEnrolment->update([
+                    'status' => 'cancelled',
+                    'exit_date' => today()->toDateString(),
+                    'outcome' => 'promotion_reversed',
+                ]);
+            }
+
+            $sourceEnrolment->update([
+                'status' => 'active',
+                'exit_date' => null,
+                'outcome' => null,
+            ]);
+
+            $lockedPromotion->update([
+                'reversed_at' => now(),
+                'reversed_by' => $actor->id,
+                'reversal_reason' => $reason,
+            ]);
+
+            $this->activities->record(
+                $student,
+                $actor,
+                'student.promotion_reversed',
+                'Academic promotion decision reversed.',
+                $lockedPromotion->sourceAcademicYear,
+                [
+                    'promotion_id' => $lockedPromotion->id,
+                    'reason' => $reason,
+                    'target_academic_year_id' => $lockedPromotion->target_academic_year_id,
+                ],
+            );
         });
     }
 }

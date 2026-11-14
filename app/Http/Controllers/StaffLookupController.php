@@ -48,9 +48,15 @@ abstract class StaffLookupController extends Controller
             ->pluck('total', $this->column());
 
         return Inertia::render($this->folder().'/Index', [
-            'items' => $this->model()::query()->orderBy('name')->get(['id', 'name'])
-                ->map(fn (Model $item): array => ['id' => $item->id, 'name' => $item->name, 'staffCount' => (int) ($counts[$item->id] ?? 0)])
-                ->values(),
+            'items' => $this->model()::query()
+                ->orderBy('name')
+                ->paginate(15)
+                ->withQueryString()
+                ->through(fn (Model $item): array => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'staffCount' => (int) ($counts[$item->id] ?? 0),
+                ]),
             'unassigned' => Staff::query()->whereNull($this->column())->count(),
         ]);
     }
@@ -65,15 +71,17 @@ abstract class StaffLookupController extends Controller
                 ->with($this->otherRelation().':id,name')
                 ->where($this->column(), $item->id)
                 ->orderBy('name')
-                ->get()
-                ->map(fn (Staff $member): array => [
+                ->orderBy('id')
+                ->paginate(15)
+                ->withQueryString()
+                ->through(fn (Staff $member): array => [
                     'id' => $member->id,
                     'name' => $member->name,
                     'staffNumber' => $member->staff_number,
                     'status' => $member->status,
                     'isTeacher' => (bool) $member->is_teacher,
                     'other' => $member->{$this->otherRelation()}?->name,
-                ])->values(),
+                ]),
         ]);
     }
 

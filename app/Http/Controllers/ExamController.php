@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AcademicYearStatus;
 use App\Concerns\ManagesExamAccess;
+use App\Enums\AcademicYearStatus;
 use App\Http\Requests\StoreExamRequest;
 use App\Http\Requests\UpdateExamRequest;
 use App\Models\AcademicYear;
@@ -17,7 +17,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 class ExamController extends Controller
-{    use ManagesExamAccess;
+{
+    use ManagesExamAccess;
 
     public function index(Request $request): Response|RedirectResponse
     {
@@ -45,10 +46,9 @@ class ExamController extends Controller
             ->withCount('subjects')
             ->orderByDesc('start_date')
             ->orderByDesc('id')
-            ->get();
-
-        return Inertia::render('Exams/Index', [
-            'exams' => $exams->map(fn (Exam $exam): array => [
+            ->paginate(15)
+            ->withQueryString()
+            ->through(fn (Exam $exam): array => [
                 'id' => $exam->id,
                 'name' => $exam->name,
                 'examType' => $exam->exam_type,
@@ -58,7 +58,10 @@ class ExamController extends Controller
                 'className' => $exam->schoolClass->name,
                 'termName' => $exam->term?->name,
                 'subjectCount' => $exam->subjects_count,
-            ])->values(),
+            ]);
+
+        return Inertia::render('Exams/Index', [
+            'exams' => $exams,
             'academicYears' => $years->map(fn (AcademicYear $item): array => [
                 'id' => $item->id,
                 'name' => $item->name,

@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
 import StatusBanner from '../../Components/StatusBanner';
+import Pagination from '../../Components/Pagination';
 
 export default function SubjectsShow({ subject, classes, assignments, can }) {
     function deleteSubject() {
@@ -43,28 +44,29 @@ export default function SubjectsShow({ subject, classes, assignments, can }) {
             <div className="grid gap-6 xl:grid-cols-2">
                 {classes !== null && (
                     <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                        <h2 className="font-semibold text-slate-900">Classes using this subject</h2>
-                        {classes.length === 0 ? (
+                        <h2 className="font-semibold text-slate-900">Classes using this subject <span className="text-sm font-normal text-slate-500">· {classes.total.toLocaleString()}</span></h2>
+                        {classes.data.length === 0 ? (
                             <p className="mt-4 rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-500">Not assigned to any class.</p>
                         ) : (
                             <ul className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100">
-                                {classes.map((schoolClass) => (
+                                {classes.data.map((schoolClass) => (
                                     <li key={schoolClass.id} className="px-3 py-3 text-sm">
                                         <Link href={`/classes/${schoolClass.id}`} className="font-medium text-slate-900 hover:text-teal-800">{schoolClass.name}</Link>
                                     </li>
                                 ))}
                             </ul>
                         )}
+                        <Pagination links={classes.links} from={classes.from} to={classes.to} total={classes.total} />
                     </section>
                 )}
 
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                    <h2 className="font-semibold text-slate-900">Teachers</h2>
-                    {assignments.length === 0 ? (
+                    <h2 className="font-semibold text-slate-900">Teachers <span className="text-sm font-normal text-slate-500">· {assignments.total.toLocaleString()}</span></h2>
+                    {assignments.data.length === 0 ? (
                         <p className="mt-4 rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-500">No teachers assigned.</p>
                     ) : (
                         <ul className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100">
-                            {assignments.map((assignment) => (
+                            {assignments.data.map((assignment) => (
                                 <li key={assignment.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 text-sm">
                                     <span className="font-medium text-slate-900">{assignment.staffName}</span>
                                     <Link href={`/sections/${assignment.sectionId}`} className="text-xs font-semibold text-teal-800 hover:text-teal-950">{assignment.className} · Section {assignment.sectionName}</Link>
@@ -72,6 +74,7 @@ export default function SubjectsShow({ subject, classes, assignments, can }) {
                             ))}
                         </ul>
                     )}
+                    <Pagination links={assignments.links} from={assignments.from} to={assignments.to} total={assignments.total} />
                 </section>
             </div>
         </AppLayout>

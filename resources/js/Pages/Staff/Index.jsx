@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 import PageAlerts from '../../Components/Exams/PageAlerts';
+import Pagination from '../../Components/Pagination';
 
 export default function StaffIndex({ staff, filters, can }) {
     const [search, setSearch] = useState(filters.search || '');
@@ -82,20 +83,7 @@ export default function StaffIndex({ staff, filters, can }) {
                     </div>
                 )}
 
-                {staff.last_page > 1 && (
-                    <nav aria-label="Staff pages" className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
-                        {staff.links.map((link, index) => (
-                            <Link
-                                key={`${link.label}-${index}`}
-                                href={link.url || '#'}
-                                preserveScroll
-                                className={`rounded-lg px-3 py-2 text-xs ${link.active ? 'bg-teal-700 text-white' : 'border border-slate-200 bg-white text-slate-700'} ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
-                            >
-                                {link.label.replace('&laquo;', '‹').replace('&raquo;', '›')}
-                            </Link>
-                        ))}
-                    </nav>
-                )}
+                <Pagination links={staff.links} from={staff.from} to={staff.to} total={staff.total} />
             </section>
         </AppLayout>
     );

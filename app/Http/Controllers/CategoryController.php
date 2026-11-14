@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCategoryRequest;
 use App\Models\InventoryCategory;
 use Illuminate\Http\RedirectResponse;
@@ -18,8 +17,8 @@ class CategoryController extends Controller
         $this->authorize('viewAny', InventoryCategory::class);
 
         return Inertia::render('Supplies/Categories/Index', [
-            'categories' => InventoryCategory::query()->withCount('items')->orderBy('name')->get()
-                ->map(fn (InventoryCategory $category): array => ['id' => $category->id, 'name' => $category->name, 'description' => $category->description, 'isActive' => $category->is_active, 'items' => $category->items_count]),
+            'categories' => InventoryCategory::query()->withCount('items')->orderBy('name')->paginate(15)->withQueryString()
+                ->through(fn (InventoryCategory $category): array => ['id' => $category->id, 'name' => $category->name, 'description' => $category->description, 'isActive' => $category->is_active, 'items' => $category->items_count]),
             'can' => ['manage' => $request->user()->can('manage', InventoryCategory::class)],
         ]);
     }

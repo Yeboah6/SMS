@@ -1,9 +1,9 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, GraduationCap, LoaderCircle } from 'lucide-react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
 import { Field, inputClass } from './Login';
 
 export default function ForgotPassword() {
-    const { status } = usePage().props;
     const form = useForm({ email: '' });
 
     function submit(event) {
@@ -14,6 +14,7 @@ export default function ForgotPassword() {
     return (
         <>
             <Head title="Reset password" />
+            <PageAlerts />
             <main className="flex min-h-screen items-center justify-center bg-slate-50 px-5 py-12">
                 <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-9">
                     <Link href="/login" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-teal-800">
@@ -27,14 +28,8 @@ export default function ForgotPassword() {
                     <p className="mt-2 text-sm leading-6 text-slate-500">
                         Enter your school account email and we will send a secure reset link.
                     </p>
-                    {status && (
-                        <div role="status" className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{status}</div>
-                    )}
-                    {form.errors.email && (
-                        <div role="alert" className="mt-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800">{form.errors.email}</div>
-                    )}
                     <form onSubmit={submit} className="mt-6 space-y-5">
-                        <Field label="Email address">
+                        <Field label="Email address" error={form.errors.email}>
                             <input
                                 type="email"
                                 autoComplete="email"

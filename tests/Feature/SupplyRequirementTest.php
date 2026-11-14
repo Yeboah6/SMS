@@ -8,13 +8,13 @@ use App\Models\Enrolment;
 use App\Models\SchoolClass;
 use App\Models\Section;
 use App\Models\Student;
+use App\Services\SupplyReportService;
 use App\Services\SupplyRequirementService;
 use App\Services\SupplySaleService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
-use Tests\Feature\CreatesSupplyFixtures;
 use Tests\TestCase;
 
 /** These tests build a class, section and enrolments. If your tables need more columns, add them in classWithStudents(). */
@@ -61,7 +61,7 @@ class SupplyRequirementTest extends TestCase
         $buy = fn (Student $student, int $quantity) => app(SupplySaleService::class)->create(['student_id' => $student->id, 'items' => [['item_id' => $book->id, 'quantity' => $quantity]]], $actor);
         $buy($ama, 4);   // complete
         $buy($kofi, 1);  // partial
-                         // Esi: nothing
+        // Esi: nothing
 
         $result = $service->completion($this->year, $class);
         $byName = collect($result['students'])->keyBy('studentId');
@@ -71,6 +71,43 @@ class SupplyRequirementTest extends TestCase
         $this->assertSame(3, $byName[$kofi->id]['lines'][$requirement->id]['outstanding']);
         $this->assertSame('outstanding', $byName[$esi->id]['lines'][$requirement->id]['status']);
         $this->assertSame(['complete' => 1, 'external' => 0, 'partial' => 1, 'outstanding' => 1], $result['summary'][$requirement->id]);
+    }
+
+    public function test_interactive_completion_students_are_paginated_and_keep_class_filters(): void
+    {
+        [$class] = $this->classWithStudents(16);
+        $actor = $this->actor();
+        app(SupplyRequirementService::class)->create([
+            'academic_year_id' => $this->year->id,
+            'class_id' => $class->id,
+            'item_id' => $this->item(50)->id,
+            'quantity_per_student' => 1,
+            'is_required' => true,
+        ], $actor);
+
+        $this->actingAs($actor)->get(route('supplies.requirements.index', [
+            'academic_year_id' => $this->year->id,
+            'class_id' => $class->id,
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Supplies/Requirements/Index')
+                ->where('completion.students.total', 16)
+                ->where('completion.students.per_page', 15)
+                ->has('completion.students.data', 15)
+                ->has('completion.students.links')
+                ->where('completion.summary.'.ClassSupplyRequirement::query()->where('class_id', $class->id)->value('id').'.outstanding', 16));
+
+        $this->actingAs($actor)->get(route('supplies.requirements.index', [
+            'academic_year_id' => $this->year->id,
+            'class_id' => $class->id,
+            'page' => 2,
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('completion.students.current_page', 2)
+                ->has('completion.students.data', 1)
+                ->where('completion.students.total', 16));
     }
 
     public function test_returned_and_cancelled_purchases_do_not_count(): void
@@ -146,7 +183,7 @@ class SupplyRequirementTest extends TestCase
         app(SupplyRequirementService::class)->create(['academic_year_id' => $this->year->id, 'class_id' => $class->id, 'item_id' => $book->id, 'quantity_per_student' => 1, 'is_required' => true], $actor);
         app(SupplySaleService::class)->create(['student_id' => $ama->id, 'items' => [['item_id' => $book->id, 'quantity' => 1]]], $actor);
 
-        $rows = app(\App\Services\SupplyReportService::class)->requirementCompletion($this->year);
+        $rows = app(SupplyReportService::class)->requirementCompletion($this->year);
 
         $this->assertCount(1, $rows);
         $this->assertSame(2, $rows[0]['students']);

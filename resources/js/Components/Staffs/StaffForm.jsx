@@ -1,6 +1,7 @@
 import { Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import { Field, inputClass } from '../../Pages/Auth/Login';
+import PageAlerts from '../Exams/PageAlerts';
 
 export default function StaffForm({ member = null, roles, departments, designations, canManageUsers }) {
     const isEditing = member !== null;
@@ -39,6 +40,8 @@ export default function StaffForm({ member = null, roles, departments, designati
     const set = (key) => (event) => form.setData(key, event.target.value);
 
     return (
+        <>
+        <PageAlerts errors={form.errors} />
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div>
                 <p className="text-sm font-medium text-slate-700">Staff number</p>
@@ -118,5 +121,6 @@ export default function StaffForm({ member = null, roles, departments, designati
                 {canManageUsers && <Link href="/users" className="text-sm font-semibold text-teal-800 hover:text-teal-950">Manage user accounts and roles</Link>}
             </div>
         </form>
+        </>
     );
 }

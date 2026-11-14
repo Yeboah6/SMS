@@ -32,10 +32,12 @@ export default function PurchasesShow({ purchase, can }) {
                 {purchase.status === 'reversed' && <p role="status" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">Reversed {fmtDateTime(purchase.reversedAt)} by {purchase.reversedBy}: {purchase.reversalReason}</p>}
             </section>
 
-            <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">Item</th><th className="px-5 py-3 text-right">Quantity</th><th className="px-5 py-3 text-right">Unit cost</th><th className="px-5 py-3 text-right">Line total</th></tr></thead>
-                    <tbody className="divide-y divide-slate-100">{purchase.lines.map((line) => <tr key={line.id}><td className="px-5 py-3"><Link href={`/supplies/items/${line.itemId}`} className="font-medium text-teal-800 hover:text-teal-950">{line.name}</Link><span className="block text-xs text-slate-500">{line.sku}</span></td><td className="px-5 py-3 text-right">{line.quantity} {line.unit}</td><td className="px-5 py-3 text-right">{money(line.unitCost)}</td><td className="px-5 py-3 text-right text-slate-900">{money(line.lineTotal)}</td></tr>)}</tbody>
-                </table>
+            <section className="mb-6 rounded-2xl border border-slate-200 bg-white">
+                <div className="max-w-full overflow-x-auto rounded-2xl">
+                    <table className="w-full min-w-[34rem] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">Item</th><th className="px-5 py-3 text-right">Quantity</th><th className="px-5 py-3 text-right">Unit cost</th><th className="px-5 py-3 text-right">Line total</th></tr></thead>
+                        <tbody className="divide-y divide-slate-100">{purchase.lines.map((line) => <tr key={line.id}><td className="px-5 py-3"><Link href={`/supplies/items/${line.itemId}`} className="font-medium text-teal-800 hover:text-teal-950">{line.name}</Link><span className="block text-xs text-slate-500">{line.sku}</span></td><td className="px-5 py-3 text-right">{line.quantity} {line.unit}</td><td className="px-5 py-3 text-right">{money(line.unitCost)}</td><td className="px-5 py-3 text-right text-slate-900">{money(line.lineTotal)}</td></tr>)}</tbody>
+                    </table>
+                </div>
             </section>
 
             {can.reverse && (

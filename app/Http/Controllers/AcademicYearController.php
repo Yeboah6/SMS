@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AcademicYearStatus;
 use App\Http\Requests\StoreAcademicYearRequest;
 use App\Http\Requests\StoreTermRequest;
 use App\Http\Requests\UpdateAcademicYearRequest;
+use App\Http\Requests\UpdateTermRequest;
 use App\Models\AcademicYear;
+use App\Models\Term;
 use App\Services\AcademicYearService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,11 +63,55 @@ class AcademicYearController extends Controller
         ]);
     }
 
+    public function create(): Response
+    {
+        $this->authorize('create', AcademicYear::class);
+
+        return Inertia::render('AcademicYears/Create');
+    }
+
+    public function edit(AcademicYear $academicYear): Response|RedirectResponse
+    {
+        $this->authorize('update', $academicYear);
+
+        if ($academicYear->status !== AcademicYearStatus::Draft) {
+            return to_route('academic-years.show', $academicYear)
+                ->withErrors(['academic_year' => 'Only draft academic years can be edited.']);
+        }
+
+        return Inertia::render('AcademicYears/Edit', [
+            'year' => $this->yearSummary($academicYear),
+        ]);
+    }
+
     public function store(StoreAcademicYearRequest $request, AcademicYearService $service): RedirectResponse
     {
         $year = $service->create($request->validated());
 
         return to_route('academic-years.show', $year)->with('status', 'Academic year created as a draft.');
+    }
+
+    public function updateTerm(
+        UpdateTermRequest $request,
+        AcademicYear $academicYear,
+        Term $term,
+        AcademicYearService $service,
+    ): RedirectResponse {
+        $this->authorize('update', $academicYear);
+        $service->updateTerm($academicYear, $term, $request->validated());
+
+        return back()->with('status', 'Academic term updated.');
+    }
+
+    public function destroyTerm(
+        AcademicYear $academicYear,
+        Term $term,
+        AcademicYearService $service,
+    ): RedirectResponse {
+        $this->authorize('update', $academicYear);
+        $service->deleteTerm($academicYear, $term);
+
+        return back()->with('status', 'Academic term deleted.');
     }
 
     public function update(

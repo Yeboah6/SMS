@@ -498,9 +498,9 @@ test('parents can view published results only for linked children', function () 
             ->where('selectedStudentId', $linkedStudent->id)
             ->where('bookRequirements.className', $schoolClass->name)
             ->where('bookRequirements.academicYear', $year->name)
-            ->has('bookRequirements.items', 1)
-            ->where('bookRequirements.items.0.itemName', 'Mathematics Workbook')
-            ->where('bookRequirements.items.0.quantity', 2)
+            ->has('bookRequirements.items.data', 1)
+            ->where('bookRequirements.items.data.0.itemName', 'Mathematics Workbook')
+            ->where('bookRequirements.items.data.0.quantity', 2)
             ->has('results.data', 1)
             ->where('results.data.0.subjects.0.marksObtained', 87));
 

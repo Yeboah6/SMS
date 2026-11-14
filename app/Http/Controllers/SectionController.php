@@ -49,7 +49,6 @@ class SectionController extends Controller
 
         $section->load([
             'schoolClass.classSubjects.subject',
-            'students',
             'teacherClassAssignments.staff',
             'teacherSubjectAssignments.staff',
             'teacherSubjectAssignments.subject',
@@ -63,6 +62,16 @@ class SectionController extends Controller
         $schoolClass = $section->schoolClass;
         $canManageTeachers = $user->can('teacher_assignments.manage');
         $canViewStudents = $user->can('students.view');
+        $students = $canViewStudents
+            ? $section->students()
+                ->orderByRaw('LOWER(first_name)')
+                ->orderByRaw('LOWER(middle_name)')
+                ->orderByRaw('LOWER(last_name)')
+                ->orderBy('students.id')
+                ->paginate(15)
+                ->withQueryString()
+                ->through(fn ($student): array => $this->studentPayload($student, $section))
+            : [];
 
         return Inertia::render('Sections/Show', [
             'section' => [
@@ -93,12 +102,7 @@ class SectionController extends Controller
             'teachers' => $canManageTeachers
                 ? Staff::query()->where('is_teacher', true)->where('status', 'active')->orderBy('name')->get(['id', 'staff_number', 'name'])
                 : [],
-            'students' => $canViewStudents
-                ? $section->students
-                    ->map(fn ($student) => $this->studentPayload($student, $section))
-                    ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
-                    ->values()
-                : [],
+            'students' => $students,
             'can' => [
                 'updateSection' => $user->can('sections.update'),
                 'deleteSection' => $user->can('sections.delete'),

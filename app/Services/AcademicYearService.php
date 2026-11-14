@@ -36,6 +36,29 @@ class AcademicYearService
         });
     }
 
+    public function updateTerm(AcademicYear $academicYear, Term $term, array $data): Term
+    {
+        return DB::transaction(function () use ($academicYear, $term, $data): Term {
+            $academicYear = AcademicYear::query()->lockForUpdate()->findOrFail($academicYear->getKey());
+            $this->ensureStatus($academicYear, AcademicYearStatus::Draft, 'Terms can only be changed while the year is in draft.');
+
+            $term = $academicYear->terms()->findOrFail($term->getKey());
+            $term->update($data);
+
+            return $term->refresh();
+        });
+    }
+
+    public function deleteTerm(AcademicYear $academicYear, Term $term): void
+    {
+        DB::transaction(function () use ($academicYear, $term): void {
+            $academicYear = AcademicYear::query()->lockForUpdate()->findOrFail($academicYear->getKey());
+            $this->ensureStatus($academicYear, AcademicYearStatus::Draft, 'Terms can only be changed while the year is in draft.');
+
+            $academicYear->terms()->findOrFail($term->getKey())->delete();
+        });
+    }
+
     public function activate(AcademicYear $academicYear): AcademicYear
     {
         return DB::transaction(function () use ($academicYear): AcademicYear {

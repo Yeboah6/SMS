@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\AcademicYearStatus;
+use App\Models\Attendance;
+use App\Models\AttendanceRecord;
 use App\Models\AcademicYear;
 use App\Models\Enrolment;
+use App\Models\Promotion;
 use App\Models\SchoolClass;
 use App\Models\Section;
 use App\Models\Student;
@@ -87,18 +90,29 @@ function enrolForPromotion(Student $student, AcademicYear $year): Enrolment
     ]);
 }
 
-test('principals can review eligible students before processing an academic year promotion', function () {
+test('principals can open the promotion history and review eligible students before recording decisions', function () {
     [$principal, $sourceYear, $targetYear] = createPromotionScenario();
     $student = createPromotionStudent('PROMO-001');
     enrolForPromotion($student, $sourceYear);
+
+    $this->actingAs($principal)->get(route('promotions.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Promotions/Index'));
 
     $this->actingAs($principal)->get(route('promotions.index', [
         'source_year_id' => $sourceYear->id,
         'target_year_id' => $targetYear->id,
     ]))
         ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Promotions/Index'));
+
+    $this->actingAs($principal)->get(route('promotions.create', [
+        'source_year_id' => $sourceYear->id,
+        'target_year_id' => $targetYear->id,
+    ]))
+        ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('Promotions/Index')
+            ->component('Promotions/Create')
             ->where('students.data.0.admissionNumber', 'PROMO-001')
             ->where('canOverride', true));
 });
@@ -116,7 +130,7 @@ test('students already enrolled in the target year are not listed as promotion c
         'enrolment_date' => $targetYear->start_date->toDateString(),
     ]);
 
-    $this->actingAs($principal)->get(route('promotions.index', [
+    $this->actingAs($principal)->get(route('promotions.create', [
         'source_year_id' => $sourceYear->id,
         'target_year_id' => $targetYear->id,
     ]))
@@ -288,4 +302,144 @@ test('only authorized staff can use promotion workflows and overrides require a 
     ])->assertForbidden();
 
     expect($student->enrolments()->where('academic_year_id', $targetYear->id)->exists())->toBeFalse();
+});
+
+test('a privileged reversal restores the source placement, cancels the target placement, and keeps audit history', function () {
+    [$principal, $sourceYear, $targetYear, $targetClass, $targetSection] = createPromotionScenario();
+    $student = createPromotionStudent('PROMO-013');
+    $sourceEnrolment = enrolForPromotion($student, $sourceYear);
+
+    $this->actingAs($principal)->post(route('promotions.store'), [
+        'source_academic_year_id' => $sourceYear->id,
+        'target_academic_year_id' => $targetYear->id,
+        'class_id' => $targetClass->id,
+        'section_id' => $targetSection->id,
+        'decisions' => [
+            ['student_id' => $student->id, 'outcome' => 'promoted'],
+        ],
+    ])->assertRedirect(route('promotions.index'));
+
+    $promotion = Promotion::query()->where('student_id', $student->id)->firstOrFail();
+    $targetEnrolment = Enrolment::query()->findOrFail($promotion->target_enrolment_id);
+
+    $this->actingAs($principal)->get(route('promotions.show', $promotion))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Promotions/Show')
+            ->where('promotion.student', 'Taylor Student')
+            ->where('canReverse', true));
+
+    $this->actingAs($principal)->post(route('promotions.reverse', $promotion), [
+        'reason' => 'The promotion was recorded against the wrong student.',
+    ])->assertRedirect(route('promotions.show', $promotion))
+        ->assertSessionHas('status', 'Promotion reversed and recorded in the student history.');
+
+    expect($sourceEnrolment->fresh()->status)->toBe('active')
+        ->and($sourceEnrolment->fresh()->outcome)->toBeNull()
+        ->and($targetEnrolment->fresh()->status)->toBe('cancelled')
+        ->and($targetEnrolment->fresh()->outcome)->toBe('promotion_reversed')
+        ->and($promotion->fresh()->reversed_by)->toBe($principal->id)
+        ->and($promotion->fresh()->reversal_reason)->toBe('The promotion was recorded against the wrong student.')
+        ->and($student->activities()->where('event_type', 'student.promotion_reversed')->exists())->toBeTrue();
+
+    $this->actingAs($principal)->post(route('promotions.reverse', $promotion), [
+        'reason' => 'The promotion was recorded against the wrong student.',
+    ])->assertSessionHasErrors('promotion');
+
+    $this->actingAs($principal)->get(route('promotions.create', [
+        'source_year_id' => $sourceYear->id,
+        'target_year_id' => $targetYear->id,
+    ]))->assertInertia(fn ($page) => $page
+        ->where('students.total', 1)
+        ->where('students.data.0.admissionNumber', 'PROMO-013'));
+
+    $this->actingAs($principal)->post(route('promotions.store'), [
+        'source_academic_year_id' => $sourceYear->id,
+        'target_academic_year_id' => $targetYear->id,
+        'class_id' => $targetClass->id,
+        'section_id' => $targetSection->id,
+        'decisions' => [
+            ['student_id' => $student->id, 'outcome' => 'promoted'],
+        ],
+    ])->assertRedirect(route('promotions.index'));
+
+    $this->assertDatabaseCount('promotions', 2);
+    $this->assertDatabaseHas('promotions', [
+        'id' => $promotion->id,
+        'reversal_reason' => 'The promotion was recorded against the wrong student.',
+    ]);
+    $newPromotion = Promotion::query()->where('student_id', $student->id)->whereNull('reversed_at')->firstOrFail();
+
+    expect($promotion->fresh()->reversed_at)->not->toBeNull()
+        ->and($newPromotion->target_enrolment_id)->toBe($targetEnrolment->id)
+        ->and($targetEnrolment->fresh()->status)->toBe('active');
+});
+
+test('a promotion cannot be reversed after attendance exists for the target placement', function () {
+    [$principal, $sourceYear, $targetYear, $targetClass, $targetSection] = createPromotionScenario();
+    $student = createPromotionStudent('PROMO-014');
+    $sourceEnrolment = enrolForPromotion($student, $sourceYear);
+
+    $this->actingAs($principal)->post(route('promotions.store'), [
+        'source_academic_year_id' => $sourceYear->id,
+        'target_academic_year_id' => $targetYear->id,
+        'class_id' => $targetClass->id,
+        'section_id' => $targetSection->id,
+        'decisions' => [
+            ['student_id' => $student->id, 'outcome' => 'promoted'],
+        ],
+    ])->assertRedirect();
+
+    $promotion = Promotion::query()->where('student_id', $student->id)->firstOrFail();
+    $targetEnrolment = Enrolment::query()->findOrFail($promotion->target_enrolment_id);
+    $attendance = Attendance::query()->create([
+        'academic_year_id' => $targetYear->id,
+        'section_id' => $targetSection->id,
+        'attendance_date' => today()->toDateString(),
+        'marked_by' => $principal->id,
+    ]);
+    AttendanceRecord::query()->create([
+        'attendance_id' => $attendance->id,
+        'student_id' => $student->id,
+        'enrolment_id' => $targetEnrolment->id,
+        'status' => 'present',
+    ]);
+
+    $this->actingAs($principal)->post(route('promotions.reverse', $promotion), [
+        'reason' => 'The promotion was recorded against the wrong student.',
+    ])->assertSessionHasErrors('promotion');
+
+    expect($sourceEnrolment->fresh()->status)->toBe('completed')
+        ->and($targetEnrolment->fresh()->status)->toBe('active')
+        ->and($promotion->fresh()->reversed_at)->toBeNull();
+});
+
+test('promotion reversals require the override permission and a reason', function () {
+    [$principal, $sourceYear, $targetYear, $targetClass, $targetSection] = createPromotionScenario();
+    $student = createPromotionStudent('PROMO-015');
+    enrolForPromotion($student, $sourceYear);
+
+    $this->actingAs($principal)->post(route('promotions.store'), [
+        'source_academic_year_id' => $sourceYear->id,
+        'target_academic_year_id' => $targetYear->id,
+        'class_id' => $targetClass->id,
+        'section_id' => $targetSection->id,
+        'decisions' => [
+            ['student_id' => $student->id, 'outcome' => 'promoted'],
+        ],
+    ])->assertRedirect();
+
+    $promotion = Promotion::query()->where('student_id', $student->id)->firstOrFail();
+    $promotionManager = User::factory()->create();
+    $promotionManager->givePermissionTo('students.promote');
+
+    $this->actingAs($promotionManager)->post(route('promotions.reverse', $promotion), [
+        'reason' => 'The promotion was recorded against the wrong student.',
+    ])->assertForbidden();
+
+    $this->actingAs($principal)->post(route('promotions.reverse', $promotion), [
+        'reason' => ' ',
+    ])->assertSessionHasErrors('reason');
+
+    expect($promotion->fresh()->reversed_at)->toBeNull();
 });

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AcademicYearStatus;
 use App\Concerns\ScopesTeacherAccess;
+use App\Enums\AcademicYearStatus;
 use App\Http\Requests\StoreSchoolClassRequest;
 use App\Http\Requests\SyncClassSubjectsRequest;
 use App\Http\Requests\UpdateSchoolClassRequest;
@@ -48,7 +48,8 @@ class SchoolClassController extends Controller
             ))
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->paginate(15)
+            ->withQueryString();
 
         return Inertia::render('Classes/Index', [
             'years' => $years->map(fn (AcademicYear $year): array => [
@@ -58,7 +59,7 @@ class SchoolClassController extends Controller
             ]),
             'selectedYearId' => $yearId,
             'yearLocked' => $this->yearIsLocked($yearId ? (int) $yearId : null),
-            'classes' => $classes->map(function (SchoolClass $schoolClass) use ($staffId): array {
+            'classes' => $classes->through(function (SchoolClass $schoolClass) use ($staffId): array {
                 $sections = $this->visibleSections($schoolClass, $staffId);
 
                 return [
@@ -69,7 +70,7 @@ class SchoolClassController extends Controller
                     'subjectsCount' => $schoolClass->class_subjects_count,
                     'studentsCount' => (int) $sections->sum('students_count'),
                 ];
-            })->values(),
+            }),
             'can' => [
                 'create' => $user->can('classes.create'),
                 'update' => $user->can('classes.update'),
@@ -119,11 +120,11 @@ class SchoolClassController extends Controller
     {
         $user = $request->user();
         abort_unless($user->can('classes.view'), 403);
-    
+
         $staffId = $this->scopedStaffId($request);
         $canManageTeachers = $user->can('teacher_assignments.manage');
         $canViewStudents = $user->can('students.view');
-    
+
         $schoolClass->load([
             'sections' => fn ($query) => $query
                 ->orderBy('name')
@@ -135,10 +136,10 @@ class SchoolClassController extends Controller
                 ]),
             'classSubjects.subject',
         ]);
-    
+
         $sections = $this->visibleSections($schoolClass, $staffId);
         abort_if($staffId !== null && $sections->isEmpty(), 403);
-    
+
         $teacherSubjectIds = $staffId === null
             ? null
             : $sections
@@ -146,9 +147,9 @@ class SchoolClassController extends Controller
                     ->where('staff_id', $staffId)
                     ->pluck('subject_id'))
                 ->unique();
-    
+
         $year = AcademicYear::query()->find($schoolClass->academic_year_id);
-    
+
         return Inertia::render('Classes/Show', [
             'schoolClass' => [
                 'id' => $schoolClass->id,

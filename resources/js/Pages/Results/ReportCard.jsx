@@ -19,7 +19,8 @@ export default function ResultsReportCard({ mode, studentId, exam, card }) {
                     body * { visibility: hidden; }
                     .rc-print, .rc-print * { visibility: visible; }
                     .rc-print { position: absolute; left: 0; top: 0; width: 100%; }
-                    .rc-sheet { box-shadow: none !important; max-width: none !important; margin: 0 !important; }
+                    .rc-sheet { box-shadow: none !important; max-width: none !important; margin: 0 !important; overflow: visible !important; }
+                    .rc-table-wrap { overflow: visible !important; }
                 }
             `}</style>
 
@@ -54,38 +55,40 @@ export default function ResultsReportCard({ mode, studentId, exam, card }) {
                         <Line><Item label="Attendance obtained" value={d.attendance} /><Item label="Out of" value={d.outOf} /></Line>
                     </div>
 
-                    <table className="w-full border-collapse text-left">
-                        <thead>
-                            <tr className="border-b-2 border-slate-800 text-center text-xs font-bold uppercase">
-                                <th className="border-r-2 border-slate-800 p-2 text-left">Subject</th>
-                                <th className="border-r border-slate-800 p-2">Class score<br />30%</th>
-                                <th className="border-r border-slate-800 p-2">Exams score<br />70%</th>
-                                <th className="border-r border-slate-800 p-2">Total score<br />100%</th>
-                                <th className="border-r border-slate-800 p-2">Position</th>
-                                <th className="p-2">Remarks</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {card.rows.map((r) => (
-                                <tr key={r.subjectId} className="border-b border-slate-800 text-center">
-                                    <td className="border-r-2 border-slate-800 p-2 text-left">{r.subject}</td>
-                                    <td className="border-r border-slate-800 p-2">{r.classScore ?? ''}</td>
-                                    <td className="border-r border-slate-800 p-2">{r.examScore ?? ''}</td>
-                                    <td className="border-r border-slate-800 p-2 font-semibold">{r.total ?? ''}</td>
-                                    <td className="border-r border-slate-800 p-2">{r.position ?? ''}</td>
-                                    <td className="p-2">{r.remark ?? ''}</td>
+                    <div className="rc-table-wrap max-w-full overflow-x-auto">
+                        <table className="w-full min-w-[42rem] border-collapse text-left">
+                            <thead>
+                                <tr className="border-b-2 border-slate-800 text-center text-xs font-bold uppercase">
+                                    <th className="border-r-2 border-slate-800 p-2 text-left">Subject</th>
+                                    <th className="border-r border-slate-800 p-2">Class score<br />30%</th>
+                                    <th className="border-r border-slate-800 p-2">Exams score<br />70%</th>
+                                    <th className="border-r border-slate-800 p-2">Total score<br />100%</th>
+                                    <th className="border-r border-slate-800 p-2">Position</th>
+                                    <th className="p-2">Remarks</th>
                                 </tr>
-                            ))}
-                            <tr className="border-y-2 border-slate-800 text-center font-bold">
-                                <td className="border-r-2 border-slate-800 p-2 text-left">TOTAL</td>
-                                <td className="border-r border-slate-800" />
-                                <td className="border-r border-slate-800" />
-                                <td className="border-r border-slate-800 p-2">{card.grandTotal}</td>
-                                <td className="border-r border-slate-800 p-2">{card.overallPosition ? `${card.overallPosition} of ${card.classSize}` : ''}</td>
-                                <td />
-                            </tr>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {card.rows.map((r) => (
+                                    <tr key={r.subjectId} className="border-b border-slate-800 text-center">
+                                        <td className="border-r-2 border-slate-800 p-2 text-left">{r.subject}</td>
+                                        <td className="border-r border-slate-800 p-2">{r.classScore ?? ''}</td>
+                                        <td className="border-r border-slate-800 p-2">{r.examScore ?? ''}</td>
+                                        <td className="border-r border-slate-800 p-2 font-semibold">{r.total ?? ''}</td>
+                                        <td className="border-r border-slate-800 p-2">{r.position ?? ''}</td>
+                                        <td className="p-2">{r.remark ?? ''}</td>
+                                    </tr>
+                                ))}
+                                <tr className="border-y-2 border-slate-800 text-center font-bold">
+                                    <td className="border-r-2 border-slate-800 p-2 text-left">TOTAL</td>
+                                    <td className="border-r border-slate-800" />
+                                    <td className="border-r border-slate-800" />
+                                    <td className="border-r border-slate-800 p-2">{card.grandTotal}</td>
+                                    <td className="border-r border-slate-800 p-2">{card.overallPosition ? `${card.overallPosition} of ${card.classSize}` : ''}</td>
+                                    <td />
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
                     <div className="mt-3 space-y-2">
                         <Item label="Conduct" value={d.conduct} block />

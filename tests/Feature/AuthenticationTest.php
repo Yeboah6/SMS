@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Student;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,7 +22,7 @@ test('a user can sign in and reach the dashboard', function () {
     ]);
 
     $this->post('/login', [
-        'email' => $user->email,
+        'login' => $user->email,
         'password' => 'StrongSchoolPassword!42',
         'remember' => true,
     ])->assertRedirect('/dashboard');
@@ -37,6 +38,30 @@ test('a user can sign in and reach the dashboard', function () {
             ->where('auth.user.email', $user->email));
 });
 
+test('a student can sign in with their admission number', function () {
+    $user = User::factory()->create([
+        'email' => null,
+        'password' => 'StrongSchoolPassword!42',
+    ]);
+
+    Student::query()->create([
+        'user_id' => $user->id,
+        'admission_number' => 'ADM0001',
+        'first_name' => 'Ava',
+        'last_name' => 'Learner',
+        'date_of_birth' => '2010-01-01',
+        'gender' => 'female',
+        'admission_date' => '2025-09-01',
+    ]);
+
+    $this->post('/login', [
+        'login' => 'adm0001',
+        'password' => 'StrongSchoolPassword!42',
+    ])->assertRedirect('/dashboard');
+
+    $this->assertAuthenticatedAs($user);
+});
+
 test('deactivated accounts cannot sign in', function () {
     $user = User::factory()->create([
         'password' => 'StrongSchoolPassword!42',
@@ -44,9 +69,9 @@ test('deactivated accounts cannot sign in', function () {
     $user->delete();
 
     $this->from('/login')->post('/login', [
-        'email' => $user->email,
+        'login' => $user->email,
         'password' => 'StrongSchoolPassword!42',
-    ])->assertRedirect('/login')->assertSessionHasErrors('email');
+    ])->assertRedirect('/login')->assertSessionHasErrors('login');
 
     $this->assertGuest();
 });
@@ -55,9 +80,9 @@ test('invalid credentials do not authenticate a user', function () {
     $user = User::factory()->create();
 
     $this->from('/login')->post('/login', [
-        'email' => $user->email,
+        'login' => $user->email,
         'password' => 'incorrect-password',
-    ])->assertRedirect('/login')->assertSessionHasErrors('email');
+    ])->assertRedirect('/login')->assertSessionHasErrors('login');
 
     $this->assertGuest();
 });
@@ -65,13 +90,13 @@ test('invalid credentials do not authenticate a user', function () {
 test('login attempts are rate limited', function () {
     foreach (range(1, 5) as $attempt) {
         $this->post('/login', [
-            'email' => 'unknown@example.test',
+            'login' => 'unknown@example.test',
             'password' => 'incorrect-password',
         ])->assertRedirect();
     }
 
     $this->post('/login', [
-        'email' => 'unknown@example.test',
+        'login' => 'unknown@example.test',
         'password' => 'incorrect-password',
     ])->assertTooManyRequests();
 });

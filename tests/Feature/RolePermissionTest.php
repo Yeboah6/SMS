@@ -96,12 +96,18 @@ test('only users with the required permission can open access management pages',
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Roles/Index')
-            ->has('roles', 8)
+            ->has('roles.data', 8)
+            ->where('roles.total', 8)
+            ->has('roles.links')
             ->where('auth.user.roles', ['Super Admin']));
 
     $this->actingAs($admin)->get('/permissions')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Permissions/Index'));
+        ->assertInertia(fn ($page) => $page
+            ->component('Permissions/Index')
+            ->has('groups.data')
+            ->has('groups.links')
+            ->where('groups.total', Permission::query()->where('guard_name', 'web')->count()));
 });
 
 test('super admins can create user accounts and assign a primary role', function () {

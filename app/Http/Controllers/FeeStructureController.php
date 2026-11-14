@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AcademicYearStatus;
 use App\Concerns\ManagesFeeYears;
+use App\Enums\AcademicYearStatus;
 use App\Http\Requests\StoreFeeStructureRequest;
 use App\Models\AcademicYear;
 use App\Models\FeeHead;
@@ -31,10 +31,14 @@ class FeeStructureController extends Controller
         $year = $this->pickYear($request, $years);
         $open = $this->isOpen($year);
 
-        $byClass = $year
+        $classes = $year
+            ? $year->classes()->orderBy('sort_order')->orderBy('name')->paginate(15)->withQueryString()
+            : SchoolClass::query()->whereRaw('1 = 0')->paginate(15)->withQueryString();
+        $byClass = $year && $classes->isNotEmpty()
             ? FeeStructure::query()
                 ->with('feeHead:id,name')
                 ->where('academic_year_id', $year->id)
+                ->whereIn('class_id', $classes->getCollection()->modelKeys())
                 ->orderBy('fee_head_id')
                 ->get()
                 ->groupBy('class_id')
@@ -43,24 +47,21 @@ class FeeStructureController extends Controller
         return Inertia::render('FeeStructures/Index', [
             'academicYears' => $this->yearOptions($years),
             'selectedAcademicYear' => $year ? ['id' => $year->id, 'name' => $year->name, 'status' => $year->status->value] : null,
-            'classes' => $year
-                ? $year->classes()->orderBy('sort_order')->orderBy('name')->get(['id', 'name'])
-                    ->map(function (SchoolClass $schoolClass) use ($byClass): array {
-                        $rows = $byClass->get($schoolClass->id, collect());
+            'classes' => $classes->through(function (SchoolClass $schoolClass) use ($byClass): array {
+                $rows = $byClass->get($schoolClass->id, collect());
 
-                        return [
-                            'id' => $schoolClass->id,
-                            'name' => $schoolClass->name,
-                            'total' => (float) $rows->sum('amount'),
-                            'structures' => $rows->map(fn (FeeStructure $structure): array => [
-                                'id' => $structure->id,
-                                'feeHeadName' => $structure->feeHead->name,
-                                'amount' => (float) $structure->amount,
-                                'dueDate' => $structure->due_date->toDateString(),
-                            ])->values(),
-                        ];
-                    })->values()
-                : [],
+                return [
+                    'id' => $schoolClass->id,
+                    'name' => $schoolClass->name,
+                    'total' => (float) $rows->sum('amount'),
+                    'structures' => $rows->map(fn (FeeStructure $structure): array => [
+                        'id' => $structure->id,
+                        'feeHeadName' => $structure->feeHead->name,
+                        'amount' => (float) $structure->amount,
+                        'dueDate' => $structure->due_date->toDateString(),
+                    ])->values(),
+                ];
+            }),
             'can' => [
                 'create' => $user->can('fee_structures.create') && $open,
                 'update' => $user->can('fee_structures.update') && $open,

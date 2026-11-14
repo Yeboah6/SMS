@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Notifications\NoticePublishedNotification;
 use App\Services\NoticeService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -76,12 +77,15 @@ class NoticeController extends Controller
             'notices' => $notices,
             'filters' => ['search' => $search, 'tab' => $tab, 'audience' => $audience],
             'counts' => $canPublish ? $this->counts($today) : null,
-            'notifications' => $this->unreadNotifications($user)->take(10)->map(fn ($notification): array => [
-                'id' => $notification->id,
-                'noticeId' => $notification->data['notice_id'] ?? null,
-                'title' => $notification->data['title'],
-                'body' => Str::limit($notification->data['body'], 200),
-            ])->values(),
+            'notifications' => $this->unreadNoticeNotifications($user)
+                ->paginate(15, ['id', 'data', 'created_at'], 'notifications_page')
+                ->withQueryString()
+                ->through(fn ($notification): array => [
+                    'id' => $notification->id,
+                    'noticeId' => $notification->data['notice_id'] ?? null,
+                    'title' => $notification->data['title'],
+                    'body' => Str::limit($notification->data['body'], 200),
+                ]),
             'can' => [
                 'create' => $user->can('notices.create'),
                 'publish' => $canPublish,
@@ -217,39 +221,7 @@ class NoticeController extends Controller
     /** Publishers see every notice; others see published notices for their audience, plus their own drafts. */
     private function visibleNotices(User $user): Builder
     {
-        $query = Notice::query();
-
-        if ($user->can('notices.publish')) {
-            return $query;
-        }
-
-        return $query->where(function (Builder $inner) use ($user): void {
-            $inner->where(fn (Builder $published) => $published
-                ->where('status', 'published')
-                ->whereIn('audience', $this->audiencesFor($user)));
-
-            if ($user->can('notices.create')) {
-                $inner->orWhere(fn (Builder $own) => $own->where('status', 'draft')->where('created_by', $user->id));
-            }
-        });
-    }
-
-    /** @return list<string> */
-    private function audiencesFor(User $user): array
-    {
-        $audiences = ['all'];
-        if ($user->hasRole('Student')) {
-            $audiences[] = 'students';
-        } elseif ($user->hasRole('Parent')) {
-            $audiences[] = 'parents';
-        } else {
-            $audiences[] = 'staff';
-            if ($user->hasRole('Teacher')) {
-                $audiences[] = 'teachers';
-            }
-        }
-
-        return $audiences;
+        return Notice::query()->visibleTo($user);
     }
 
     private function canChangeDraft(User $user, Notice $notice): bool
@@ -261,11 +233,16 @@ class NoticeController extends Controller
     /** Unread "notice published" notifications for the user. */
     private function unreadNotifications(User $user)
     {
-        return $user->unreadNotifications()
-            ->where('type', NoticePublishedNotification::class)
-            ->latest()
+        return $this->unreadNoticeNotifications($user)
             ->limit(50)
             ->get(['id', 'data', 'created_at']);
+    }
+
+    private function unreadNoticeNotifications(User $user): MorphMany
+    {
+        return $user->unreadNotifications()
+            ->where('type', NoticePublishedNotification::class)
+            ->latest();
     }
 
     /** @return array{all: int, draft: int, published: int, expired: int} */

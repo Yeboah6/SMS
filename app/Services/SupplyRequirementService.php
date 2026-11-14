@@ -11,7 +11,9 @@ use App\Models\Student;
 use App\Models\StudentSupplySaleItem;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 /** What each class should have, and how far each student has got. Buying from the school is never assumed. */
@@ -73,9 +75,9 @@ class SupplyRequirementService
      * Quantities bought count sales that were not cancelled, net of returns; a term-specific requirement only
      * counts purchases made during that term.
      *
-     * @return array{requirements: list<array<string, mixed>>, students: list<array<string, mixed>>, summary: array<int, array<string, int>>}
+     * @return array{requirements: list<array<string, mixed>>, students: list<array<string, mixed>>|LengthAwarePaginator, summary: array<int, array<string, int>>}
      */
-    public function completion(AcademicYear $year, SchoolClass $class, ?int $onlyStudentId = null): array
+    public function completion(AcademicYear $year, SchoolClass $class, ?int $onlyStudentId = null, bool $paginateStudents = false): array
     {
         $requirements = ClassSupplyRequirement::query()
             ->with(['item', 'term'])
@@ -84,6 +86,16 @@ class SupplyRequirementService
             ->orderByDesc('is_required')
             ->orderBy('item_id')
             ->get();
+
+        if ($paginateStudents) {
+            [$students, $summary] = $this->paginatedCompletionStudents($requirements, $year, $class, $onlyStudentId);
+
+            return [
+                'requirements' => $this->requirementPayload($requirements),
+                'students' => $students,
+                'summary' => $summary,
+            ];
+        }
 
         $enrolments = Enrolment::query()
             ->with('student:id,first_name,middle_name,last_name,admission_number')
@@ -145,22 +157,101 @@ class SupplyRequirementService
         })->all();
 
         return [
-            'requirements' => $requirements->map(fn (ClassSupplyRequirement $requirement): array => [
-                'id' => $requirement->id,
-                'itemId' => $requirement->item_id,
-                'itemName' => $requirement->item->name,
-                'sku' => $requirement->item->sku,
-                'unit' => $requirement->item->unit,
-                'price' => (float) $requirement->item->selling_price,
-                'quantity' => $requirement->quantity_per_student,
-                'isRequired' => $requirement->is_required,
-                'termId' => $requirement->term_id,
-                'termName' => $requirement->term?->name,
-                'notes' => $requirement->notes,
-            ])->all(),
+            'requirements' => $this->requirementPayload($requirements),
             'students' => $students,
             'summary' => $summary,
         ];
+    }
+
+    /**
+     * Calculate class-wide summary counts in bounded enrolment chunks while returning only one table page.
+     *
+     * @param  Collection<int, ClassSupplyRequirement>  $requirements
+     * @return array{0: LengthAwarePaginator, 1: array<int, array<string, int>>}
+     */
+    private function paginatedCompletionStudents(Collection $requirements, AcademicYear $year, SchoolClass $class, ?int $onlyStudentId): array
+    {
+        $enrolmentQuery = Enrolment::query()
+            ->with('student:id,first_name,middle_name,last_name,admission_number')
+            ->where('academic_year_id', $year->id)
+            ->where('class_id', $class->id)
+            ->where('status', 'active')
+            ->when($onlyStudentId, fn ($query) => $query->where('student_id', $onlyStudentId))
+            ->orderBy('id');
+        $students = (clone $enrolmentQuery)->paginate(15)->withQueryString();
+        $pageIds = $students->getCollection()->pluck('student_id')->all();
+        $summary = $requirements->mapWithKeys(fn ($requirement): array => [$requirement->id => ['complete' => 0, 'external' => 0, 'partial' => 0, 'outstanding' => 0]])->all();
+        $pageRows = [];
+
+        (clone $enrolmentQuery)->chunkById(100, function ($enrolments) use ($requirements, $year, $pageIds, &$summary, &$pageRows): void {
+            $studentIds = $enrolments->pluck('student_id');
+            $yearWide = $this->purchased($studentIds, $year->id);
+            $termWide = [];
+            foreach ($requirements->whereNotNull('term_id')->pluck('term')->unique('id') as $term) {
+                $termWide[$term->id] = $this->purchased($studentIds, $year->id, $term->start_date->copy()->startOfDay(), $term->end_date->copy()->endOfDay());
+            }
+            $external = ClassSupplyExtFulfilment::query()
+                ->whereIn('requirement_id', $requirements->pluck('id'))
+                ->whereIn('student_id', $studentIds)
+                ->get()
+                ->groupBy('requirement_id')
+                ->map(fn ($rows) => $rows->pluck('student_id')->all());
+
+            foreach ($enrolments as $enrolment) {
+                $studentId = $enrolment->student_id;
+                $lines = [];
+                $complete = true;
+                foreach ($requirements as $requirement) {
+                    $required = $requirement->quantity_per_student;
+                    $bought = (int) ($requirement->term_id
+                        ? ($termWide[$requirement->term_id][$studentId][$requirement->item_id] ?? 0)
+                        : ($yearWide[$studentId][$requirement->item_id] ?? 0));
+                    $isExternal = in_array($studentId, $external->get($requirement->id, []), true);
+                    $status = $isExternal ? 'external' : ($bought >= $required ? 'complete' : ($bought > 0 ? 'partial' : 'outstanding'));
+                    $summary[$requirement->id][$status]++;
+                    if ($requirement->is_required && ! in_array($status, ['complete', 'external'], true)) {
+                        $complete = false;
+                    }
+                    $lines[$requirement->id] = ['required' => $required, 'purchased' => $bought, 'outstanding' => max(0, $required - $bought), 'status' => $status];
+                }
+
+                if (in_array($studentId, $pageIds, true)) {
+                    $student = $enrolment->student;
+                    $pageRows[$studentId] = [
+                        'studentId' => $studentId,
+                        'name' => trim(implode(' ', array_filter([$student->first_name, $student->middle_name, $student->last_name]))),
+                        'admissionNumber' => $student->admission_number,
+                        'lines' => $lines,
+                        'complete' => $complete,
+                    ];
+                }
+            }
+        });
+
+        $students->setCollection(collect($students->getCollection()->map(fn (Enrolment $enrolment): array => $pageRows[$enrolment->student_id])));
+
+        return [$students, $summary];
+    }
+
+    /**
+     * @param  Collection<int, ClassSupplyRequirement>  $requirements
+     * @return list<array<string, mixed>>
+     */
+    private function requirementPayload(Collection $requirements): array
+    {
+        return $requirements->map(fn (ClassSupplyRequirement $requirement): array => [
+            'id' => $requirement->id,
+            'itemId' => $requirement->item_id,
+            'itemName' => $requirement->item->name,
+            'sku' => $requirement->item->sku,
+            'unit' => $requirement->item->unit,
+            'price' => (float) $requirement->item->selling_price,
+            'quantity' => $requirement->quantity_per_student,
+            'isRequired' => $requirement->is_required,
+            'termId' => $requirement->term_id,
+            'termName' => $requirement->term?->name,
+            'notes' => $requirement->notes,
+        ])->all();
     }
 
     // ------------------------------------------------------------------ helpers

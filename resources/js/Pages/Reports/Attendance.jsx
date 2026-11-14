@@ -1,5 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '../../Layouts/AppLayout';
+import EmptyState from '../../Components/EmptyState';
+import ReportFilterPanel from '../../Components/Reports/ReportFilterPanel';
 import { inputClass } from '../Auth/Login';
 
 const summaryCards = [
@@ -39,7 +41,7 @@ export default function AttendanceReport({
         >
             <Head title="Attendance report" />
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <ReportFilterPanel description="Choose the academic year and sections to include.">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <form method="GET" action="/reports/attendance" className="grid gap-4 sm:grid-cols-2">
                         <label className="grid gap-1.5 text-sm font-medium text-slate-700">
@@ -73,7 +75,7 @@ export default function AttendanceReport({
                     </form>
                     <p className="text-sm text-slate-500">{students.total.toLocaleString()} students with recorded attendance</p>
                 </div>
-            </section>
+            </ReportFilterPanel>
 
             <section aria-label="Attendance totals" className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 {summaryCards.map((card) => (
@@ -92,9 +94,8 @@ export default function AttendanceReport({
                     <p className="text-sm text-slate-500">Counts include recorded attendance sessions in the selected academic year.</p>
                 </div>
                 {students.data.length === 0 ? (
-                    <div className="px-6 py-12 text-center">
-                        <p className="font-medium text-slate-800">No attendance records found</p>
-                        <p className="mt-1 text-sm text-slate-500">Choose another year or section, or record attendance first.</p>
+                    <div className="p-5 sm:p-6">
+                        <EmptyState title="No attendance records found" detail="Choose another year or section, or record attendance first." />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

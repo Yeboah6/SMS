@@ -1,5 +1,8 @@
 import { Head, router } from '@inertiajs/react';
+import { ClipboardList, Download, UsersRound } from 'lucide-react';
 import AppLayout from '../../Layouts/AppLayout';
+import EmptyState from '../../Components/EmptyState';
+import ReportFilterPanel from '../../Components/Reports/ReportFilterPanel';
 import { inputClass } from '../Auth/Login';
 
 const percentageFormat = new Intl.NumberFormat(undefined, {
@@ -46,8 +49,8 @@ export default function AcademicResultsReport({
         >
             <Head title="Academic results report" />
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                <form method="GET" action="/reports/academic" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <ReportFilterPanel description="Choose the academic scope for this report.">
+                <form method="GET" action="/reports/academic" className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <label className="grid gap-1.5 text-sm font-medium text-slate-700">
                         Academic year
                         <select name="academic_year_id" defaultValue={selectedAcademicYearId || ''} className={inputClass(false)}>
@@ -86,24 +89,26 @@ export default function AcademicResultsReport({
                             ))}
                         </select>
                     </label>
-                    <div className="flex items-center gap-2 sm:col-span-2 xl:col-span-4">
-                        <button type="submit" className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800">
+                    <div className="flex flex-wrap items-center gap-2 sm:col-span-2 xl:col-span-4">
+                        <button type="submit" className="inline-flex items-center gap-2 rounded-xl bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2">
+                            <ClipboardList size={16} aria-hidden="true" />
                             Apply filters
                         </button>
                         {canExport && selectedExamId && (
-                            <a href={`/reports/academic/export?${exportParams.toString()}`} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                            <a href={`/reports/academic/export?${exportParams.toString()}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2">
+                                <Download size={16} aria-hidden="true" />
                                 Download CSV
                             </a>
                         )}
                     </div>
                 </form>
-            </section>
+            </ReportFilterPanel>
 
             {selectedExam ? (
                 <>
                     <section aria-label="Examination performance totals" className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <article className="rounded-2xl border border-slate-200 bg-white p-4">
-                            <p className="text-sm font-medium text-slate-500">Candidates</p>
+                            <div className="flex items-center gap-2 text-sm font-medium text-slate-500"><UsersRound size={15} aria-hidden="true" />Candidates</div>
                             <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{summary.candidateCount.toLocaleString()}</p>
                         </article>
                         <article className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -183,9 +188,8 @@ export default function AcademicResultsReport({
                     </section>
                 </>
             ) : (
-                <section className="mt-6 rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center">
-                    <p className="font-medium text-slate-800">No published examinations found</p>
-                    <p className="mt-1 text-sm text-slate-500">Choose another academic year or publish an examination first.</p>
+                <section className="mt-6">
+                    <EmptyState title="No published examinations found" detail="Choose another academic year or publish an examination first." />
                 </section>
             )}
         </AppLayout>

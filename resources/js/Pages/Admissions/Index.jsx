@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 import PageAlerts from '../../Components/Exams/PageAlerts';
+import Pagination from '../../Components/Pagination';
 import { StatusBadge } from '../../Components/Admissions/AdmissionStage';
 import { ALL_STATUSES } from '../../lib/admissions';
 
@@ -100,13 +101,7 @@ export default function AdmissionsIndex({ admissions, search, selectedStatus, co
                     </div>
                 )}
 
-                {admissions.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
-                        <button type="button" disabled={admissions.current_page <= 1} onClick={() => visit({ search: searchText, status: selectedStatus, page: admissions.current_page - 1 })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">Previous</button>
-                        <span className="text-xs text-slate-500">Page {admissions.current_page} of {admissions.last_page}</span>
-                        <button type="button" disabled={admissions.current_page >= admissions.last_page} onClick={() => visit({ search: searchText, status: selectedStatus, page: admissions.current_page + 1 })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">Next</button>
-                    </div>
-                )}
+                <Pagination links={admissions.links} from={admissions.from} to={admissions.to} total={admissions.total} />
             </section>
         </AppLayout>
     );

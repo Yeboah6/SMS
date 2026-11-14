@@ -1,13 +1,13 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import PageAlerts from '../../Components/Exams/PageAlerts';
+import Pagination from '../../Components/Pagination';
 import AppLayout from '../../Layouts/AppLayout';
 
 export default function StudentNotesIndex({ student, notes, canCreate }) {
-    const { status } = usePage().props;
-
     return (
         <AppLayout title="Student notes" description={`${student.name} · ${student.admissionNumber}`}>
             <Head title={`Notes · ${student.name}`} />
-            {status && <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{status}</div>}
+            <PageAlerts />
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -39,13 +39,9 @@ export default function StudentNotesIndex({ student, notes, canCreate }) {
                     </div>
                 )}
 
-                {notes.links.length > 3 && (
-                    <nav aria-label="Notes pagination" className="mt-5 flex flex-wrap gap-2">
-                        {notes.links.map((link, index) => link.url ? (
-                            <Link key={index} href={link.url} preserveScroll className={`rounded-lg border px-3 py-2 text-xs font-medium ${link.active ? 'border-teal-800 bg-teal-800 text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`} dangerouslySetInnerHTML={{ __html: link.label }} />
-                        ) : <span key={index} className="rounded-lg border border-slate-100 px-3 py-2 text-xs text-slate-400" dangerouslySetInnerHTML={{ __html: link.label }} />)}
-                    </nav>
-                )}
+                <div className="mt-5">
+                    <Pagination links={notes.links} from={notes.from} to={notes.to} total={notes.total} />
+                </div>
             </section>
         </AppLayout>
     );

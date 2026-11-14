@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 import PageAlerts from '../../Components/Exams/PageAlerts';
+import Pagination from '../../Components/Pagination';
 import FeesNav from '../../Components/Fees/FeesNav';
 import YearSelect from '../../Components/Fees/YearSelect';
 import { STATUS_LABELS, dateLabel, statusStyle, useMoney } from '../../lib/fees';
@@ -86,13 +87,7 @@ export default function InvoicesIndex({ invoices, academicYears, selectedAcademi
                     </div>
                 )}
 
-                {invoices.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
-                        <button type="button" disabled={invoices.current_page <= 1} onClick={() => visit({ page: invoices.current_page - 1 })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">Previous</button>
-                        <span className="text-xs text-slate-500">Page {invoices.current_page} of {invoices.last_page}</span>
-                        <button type="button" disabled={invoices.current_page >= invoices.last_page} onClick={() => visit({ page: invoices.current_page + 1 })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">Next</button>
-                    </div>
-                )}
+                <Pagination links={invoices.links} from={invoices.from} to={invoices.to} total={invoices.total} />
             </section>
         </AppLayout>
     );
