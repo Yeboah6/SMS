@@ -88,7 +88,7 @@ export default function LeaveRequestsIndex({
         return (
             <AppLayout title="Leave requests" description={isPortal ? 'Request leave for yourself or a linked student.' : 'Submit staff leave and review pending requests.'}>
                 <Head title="Leave requests" />
-                <section className="rounded-2xl border border-slate-200 bg-white p-6">
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
                     <h2 className="font-semibold text-slate-900">Leave access unavailable</h2>
                     <p className="mt-2 text-sm text-slate-600">
                         {hasActiveStaffProfile
@@ -102,6 +102,7 @@ export default function LeaveRequestsIndex({
 
     const empty = emptyState(activeStatus);
     const title = canReview ? 'Staff and student leave requests' : 'My leave requests';
+    const lastLinkIndex = leaveRequests.links.length - 1;
 
     return (
         <AppLayout title="Leave requests" description={isPortal ? 'Request leave for yourself or a linked student.' : 'Submit staff leave and review pending requests.'}>
@@ -109,50 +110,54 @@ export default function LeaveRequestsIndex({
             <PageAlerts />
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                         <h2 className="font-semibold text-slate-900">{title}</h2>
                         <p className="text-sm text-slate-500">
                             {leaveRequests.total.toLocaleString()} request{leaveRequests.total === 1 ? '' : 's'}
                         </p>
                     </div>
-                    <div className="mt-3 inline-flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
+
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                         {canApply && (
                             <button
                                 type="button"
                                 onClick={() => setShowForm(true)}
-                                className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                                    showForm ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                                aria-pressed={showForm}
+                                className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition sm:py-2 ${
+                                    showForm ? 'bg-teal-800' : 'bg-teal-700 hover:bg-teal-800'
                                 }`}
                             >
                                 <Plus size={14} />
                                 New request
                             </button>
                         )}
-                        {STATUS_TABS.map((tab) => {
-                            const active = !showForm && activeStatus === tab.key;
-                            return (
-                                <button
-                                    key={tab.key}
-                                    type="button"
-                                    onClick={() => changeStatus(tab.key)}
-                                    className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                                        active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                                    }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
+                        <div className="grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1 sm:inline-flex">
+                            {STATUS_TABS.map((tab) => {
+                                const active = !showForm && activeStatus === tab.key;
+                                return (
+                                    <button
+                                        key={tab.key}
+                                        type="button"
+                                        onClick={() => changeStatus(tab.key)}
+                                        className={`whitespace-nowrap rounded-lg px-2 py-2 text-sm font-medium transition sm:px-3 sm:py-1.5 ${
+                                            active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 
                 {showForm && canApply ? (
-                    <div className="p-5 sm:p-6">
+                    <div className="p-4 sm:p-6">
                         <form onSubmit={submitRequest} className="grid max-w-2xl gap-4">
                             {requiresStudentSelection && (
                                 <Field label="Linked student" error={form.errors.student_id}>
-                                    <select value={form.data.student_id} onChange={(event) => form.setData('student_id', event.target.value)} className={inputClass(form.errors.student_id)} required>
+                                    <select value={form.data.student_id} onChange={(event) => form.setData('student_id', event.target.value)} className={`${inputClass(form.errors.student_id)} w-full`} required>
                                         <option value="">Select a student</option>
                                         {students.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.admissionNumber}</option>)}
                                     </select>
@@ -162,7 +167,7 @@ export default function LeaveRequestsIndex({
                                 <select
                                     value={form.data.leave_type}
                                     onChange={(event) => form.setData('leave_type', event.target.value)}
-                                    className={inputClass(form.errors.leave_type)}
+                                    className={`${inputClass(form.errors.leave_type)} w-full`}
                                     required
                                 >
                                     {leaveTypes.map((type) => (
@@ -176,7 +181,7 @@ export default function LeaveRequestsIndex({
                                         type="date"
                                         value={form.data.start_date}
                                         onChange={(event) => form.setData('start_date', event.target.value)}
-                                        className={inputClass(form.errors.start_date)}
+                                        className={`${inputClass(form.errors.start_date)} w-full`}
                                         required
                                     />
                                 </Field>
@@ -185,7 +190,7 @@ export default function LeaveRequestsIndex({
                                         type="date"
                                         value={form.data.end_date}
                                         onChange={(event) => form.setData('end_date', event.target.value)}
-                                        className={inputClass(form.errors.end_date)}
+                                        className={`${inputClass(form.errors.end_date)} w-full`}
                                         required
                                     />
                                 </Field>
@@ -194,27 +199,27 @@ export default function LeaveRequestsIndex({
                                 <textarea
                                     value={form.data.reason}
                                     onChange={(event) => form.setData('reason', event.target.value)}
-                                    className={inputClass(form.errors.reason)}
+                                    className={`${inputClass(form.errors.reason)} w-full`}
                                     rows={4}
                                     minLength={10}
                                     maxLength={2000}
                                     required
                                 />
                             </Field>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                    type="submit"
-                                    disabled={form.processing}
-                                    className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
-                                >
-                                    {form.processing ? 'Submitting…' : 'Submit request'}
-                                </button>
+                            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
                                 <button
                                     type="button"
                                     onClick={() => setShowForm(false)}
                                     className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
                                 >
                                     Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={form.processing}
+                                    className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50 sm:order-first"
+                                >
+                                    {form.processing ? 'Submitting…' : 'Submit request'}
                                 </button>
                             </div>
                         </form>
@@ -225,28 +230,28 @@ export default function LeaveRequestsIndex({
                         <p className="mt-1 text-sm text-slate-500">{empty.description}</p>
                     </div>
                 ) : (
-                    <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
+                    <div className="grid gap-3 p-3 sm:grid-cols-2 sm:gap-4 sm:p-6">
                         {leaveRequests.data.map((request) => (
-                            <article key={request.id} className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div>
+                            <article key={request.id} className="flex h-full min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
                                         <h3 className="font-semibold capitalize text-slate-900">{request.leaveType} leave</h3>
                                         <p className="mt-1 text-sm text-slate-600">
                                             {formatDate(request.startDate)} – {formatDate(request.endDate)}
                                         </p>
-                                        <p className="mt-1 text-xs text-slate-500">
+                                        <p className="mt-1 break-words text-xs text-slate-500">
                                             {request.subjectType === 'student' ? 'Student' : 'Staff'}: {request.staffName} · {request.staffNumber} · Submitted by {request.submittedBy}
                                         </p>
                                     </div>
-                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(request.status)}`}>
+                                    <span className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(request.status)}`}>
                                         {request.status}
                                     </span>
                                 </div>
-                                <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700">{request.reason}</p>
+                                <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{request.reason}</p>
                                 {(request.reviewer || request.reviewComments) && (
-                                    <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                    <div className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-600 sm:px-4">
                                         {request.reviewer && <p className="font-medium text-slate-700">Reviewed by {request.reviewer}{request.reviewedAt ? ` · ${formatDate(request.reviewedAt.slice(0, 10))}` : ''}</p>}
-                                        {request.reviewComments && <p className="mt-1 whitespace-pre-wrap">{request.reviewComments}</p>}
+                                        {request.reviewComments && <p className="mt-1 whitespace-pre-wrap break-words">{request.reviewComments}</p>}
                                     </div>
                                 )}
                                 {canReview && request.status === 'pending' && (
@@ -258,23 +263,23 @@ export default function LeaveRequestsIndex({
                                                     ...current,
                                                     [request.id]: event.target.value,
                                                 }))}
-                                                className={inputClass(false)}
+                                                className={`${inputClass(false)} w-full`}
                                                 rows={2}
                                                 maxLength={2000}
                                             />
                                         </Field>
-                                        <div className="flex flex-wrap gap-2">
-                                            <button type="button" onClick={() => reviewRequest(request.id, 'approved')} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                                            <button type="button" onClick={() => reviewRequest(request.id, 'approved')} className="rounded-lg bg-emerald-700 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 sm:py-2">
                                                 Approve
                                             </button>
-                                            <button type="button" onClick={() => reviewRequest(request.id, 'rejected')} className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">
+                                            <button type="button" onClick={() => reviewRequest(request.id, 'rejected')} className="rounded-lg border border-rose-200 px-3 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 sm:py-2">
                                                 Reject
                                             </button>
                                         </div>
                                     </div>
                                 )}
                                 {request.isOwn && request.status === 'pending' && (
-                                    <button type="button" onClick={() => cancelRequest(request.id)} className="mt-auto self-start rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                                    <button type="button" onClick={() => cancelRequest(request.id)} className="mt-4 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 sm:mt-auto sm:w-auto sm:self-start sm:py-2">
                                         Cancel request
                                     </button>
                                 )}
@@ -284,19 +289,23 @@ export default function LeaveRequestsIndex({
                 )}
 
                 {!showForm && leaveRequests.links.length > 3 && (
-                    <nav aria-label="Leave request pages" className="flex justify-between border-t border-slate-100 px-5 py-4">
-                        {leaveRequests.links.map((link) => (
-                            <button
-                                key={link.label}
-                                type="button"
-                                disabled={!link.url || link.active}
-                                onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true })}
-                                className={`rounded-lg px-3 py-2 text-sm ${link.active ? 'bg-teal-50 font-semibold text-teal-800' : 'text-slate-600'} disabled:opacity-40`}
-                                aria-current={link.active ? 'page' : undefined}
-                            >
-                                {link.label.replace('&laquo;', '‹').replace('&raquo;', '›')}
-                            </button>
-                        ))}
+                    <nav aria-label="Leave request pages" className="flex items-center justify-between gap-1 border-t border-slate-100 px-3 py-3 sm:px-5 sm:py-4">
+                        {leaveRequests.links.map((link, index) => {
+                            // On phones keep only previous, current page and next.
+                            const alwaysVisible = index === 0 || index === lastLinkIndex || link.active;
+                            return (
+                                <button
+                                    key={`${index}-${link.label}`}
+                                    type="button"
+                                    disabled={!link.url || link.active}
+                                    onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true })}
+                                    className={`${alwaysVisible ? '' : 'hidden sm:block'} rounded-lg px-3 py-2 text-sm ${link.active ? 'bg-teal-50 font-semibold text-teal-800' : 'text-slate-600'} disabled:opacity-40`}
+                                    aria-current={link.active ? 'page' : undefined}
+                                >
+                                    {link.label.replace('&laquo;', '‹').replace('&raquo;', '›')}
+                                </button>
+                            );
+                        })}
                     </nav>
                 )}
             </section>
