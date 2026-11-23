@@ -283,7 +283,7 @@ test('student profiles do not expose purchase records without the supplies sales
             ->where('supplySales', null));
 });
 
-test('staff can explicitly link and unlink only an existing Parent account', function () {
+test('staff can link one Parent account to multiple students and unlink those links independently', function () {
     $principal = createPhaseFivePrincipal();
     $parent = User::factory()->create(['email' => 'linked-parent@example.test']);
     $parent->assignRole('Parent');
@@ -298,11 +298,29 @@ test('staff can explicitly link and unlink only an existing Parent account', fun
 
     expect($guardian->fresh()->user_id)->toBe($parent->id);
 
+    $otherStudent = createPhaseFiveStudent('PHASE5-LINK-002');
+    $otherGuardian = $otherStudent->guardians()->firstOrFail();
+
+    $this->actingAs($principal)->get(route('students.show', $otherStudent))
+        ->assertInertia(fn ($page) => $page
+            ->has('eligibleParentAccounts', 1)
+            ->where('eligibleParentAccounts.0.id', $parent->id));
+
+    $this->actingAs($principal)->post(route('students.guardians.account.link', [$otherStudent, $otherGuardian]), [
+        'user_id' => $parent->id,
+    ])->assertRedirect()
+        ->assertSessionHas('status', 'Guardian portal account linked.');
+
+    expect($otherGuardian->fresh()->user_id)->toBe($parent->id)
+        ->and(Student::forGuardianAccount($parent)->orderBy('id')->pluck('id')->all())
+        ->toBe([$student->id, $otherStudent->id]);
+
     $this->actingAs($principal)->delete(route('students.guardians.account.unlink', [$student, $guardian]))
         ->assertRedirect()
         ->assertSessionHas('status', 'Guardian portal account unlinked.');
 
     expect($guardian->fresh()->user_id)->toBeNull()
+        ->and($otherGuardian->fresh()->user_id)->toBe($parent->id)
         ->and(User::query()->find($parent->id))->not->toBeNull();
 
     $this->actingAs($principal)->post(route('students.guardians.account.link', [$student, $guardian]), [
@@ -311,8 +329,6 @@ test('staff can explicitly link and unlink only an existing Parent account', fun
 
     expect($guardian->fresh()->user_id)->toBeNull();
 
-    $otherStudent = createPhaseFiveStudent('PHASE5-LINK-002');
-    $otherGuardian = $otherStudent->guardians()->firstOrFail();
     $this->actingAs($principal)->post(route('students.guardians.account.link', [$student, $otherGuardian]), [
         'user_id' => $parent->id,
     ])->assertNotFound();
@@ -335,7 +351,9 @@ test('guardian invitation creates a Parent account with a password setup notific
     expect($guardian->user_id)->toBeNull();
 
     $this->actingAs($principal)->post(route('students.guardians.account.invite', [$student, $guardian]))
-        ->assertSessionHasErrors('email');
+        ->assertSessionHasErrors([
+            'email' => 'An account already uses this email. Link the existing Parent account instead.',
+        ]);
 
     expect($guardian->fresh()->user_id)->toBeNull();
 

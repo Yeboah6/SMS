@@ -12,19 +12,29 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    //  server: {
+    //      watch: {
+    //          ignored: ['**/storage/framework/views/**'],
+    //      },
+    //  },
     // server: {
-    //     watch: {
-    //         ignored: ['**/storage/framework/views/**'],
-    //     },
+    //    	host: '0.0.0.0', // Listen on all network interfaces
+    //     port: 5173,
+    //     cors: {
+    //        origin: 'http://172.20.10.8:8000'  // allow Laravel's origin
+    //    },
+    //     hmr: {
+    //         host: '172.20.10.8' // Replace with your machine's IP
+    //      }
     // },
     server: {
        	host: '0.0.0.0', // Listen on all network interfaces
-         port: 5173,
-         cors: {
-            origin: 'http://192.168.0.141:8000'  // allow Laravel's origin
-        },
-         hmr: {
-             host: '192.168.0.141' // Replace with your machine's IP
+        port: 5173,
+        cors: {
+           origin: 'http://192.168.0.141:8000'  // allow Laravel's origin
+       },
+        hmr: {
+            host: '192.168.0.141' // Replace with your machine's IP
          }
-     },
+    },
 });

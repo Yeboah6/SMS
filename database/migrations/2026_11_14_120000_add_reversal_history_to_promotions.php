@@ -9,15 +9,32 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('promotions', function (Blueprint $table): void {
-            $table->dropUnique('promotions_source_enrolment_id_unique');
-            $table->dropUnique('promotions_target_enrolment_id_unique');
-            $table->index(['source_enrolment_id', 'id'], 'promotions_source_enrolment_history_index');
-            $table->index(['target_enrolment_id', 'id'], 'promotions_target_enrolment_history_index');
-            $table->timestamp('reversed_at')->nullable();
-            $table->foreignId('reversed_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->text('reversal_reason')->nullable();
-        });
+        // 1. Columns (guarded, because the earlier failed run may already have added them).
+        if (! Schema::hasColumn('promotions', 'reversed_at')) {
+            Schema::table('promotions', fn (Blueprint $table) => $table->timestamp('reversed_at')->nullable());
+        }
+        if (! Schema::hasColumn('promotions', 'reversed_by')) {
+            Schema::table('promotions', fn (Blueprint $table) => $table->foreignId('reversed_by')->nullable()->constrained('users')->nullOnDelete());
+        }
+        if (! Schema::hasColumn('promotions', 'reversal_reason')) {
+            Schema::table('promotions', fn (Blueprint $table) => $table->text('reversal_reason')->nullable());
+        }
+
+        // 2. Replacement indexes FIRST, so the enrolment FKs always have an index.
+        if (! Schema::hasIndex('promotions', 'promotions_source_enrolment_history_index')) {
+            Schema::table('promotions', fn (Blueprint $table) => $table->index(['source_enrolment_id', 'id'], 'promotions_source_enrolment_history_index'));
+        }
+        if (! Schema::hasIndex('promotions', 'promotions_target_enrolment_history_index')) {
+            Schema::table('promotions', fn (Blueprint $table) => $table->index(['target_enrolment_id', 'id'], 'promotions_target_enrolment_history_index'));
+        }
+
+        // 3. Only now drop the old unique indexes.
+        if (Schema::hasIndex('promotions', 'promotions_source_enrolment_id_unique')) {
+            Schema::table('promotions', fn (Blueprint $table) => $table->dropUnique('promotions_source_enrolment_id_unique'));
+        }
+        if (Schema::hasIndex('promotions', 'promotions_target_enrolment_id_unique')) {
+            Schema::table('promotions', fn (Blueprint $table) => $table->dropUnique('promotions_target_enrolment_id_unique'));
+        }
     }
 
     public function down(): void
@@ -47,12 +64,16 @@ return new class extends Migration
             );
         }
 
+        // Restore the uniques before removing the indexes the FKs are using.
         Schema::table('promotions', function (Blueprint $table): void {
-            $table->dropForeign(['reversed_by']);
-            $table->dropIndex('promotions_source_enrolment_history_index');
-            $table->dropIndex('promotions_target_enrolment_history_index');
             $table->unique('source_enrolment_id', 'promotions_source_enrolment_id_unique');
             $table->unique('target_enrolment_id', 'promotions_target_enrolment_id_unique');
+        });
+
+        Schema::table('promotions', function (Blueprint $table): void {
+            $table->dropIndex('promotions_source_enrolment_history_index');
+            $table->dropIndex('promotions_target_enrolment_history_index');
+            $table->dropForeign(['reversed_by']);
             $table->dropColumn(['reversed_at', 'reversed_by', 'reversal_reason']);
         });
     }

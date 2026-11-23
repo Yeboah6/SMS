@@ -7,7 +7,6 @@ use App\Models\Admission;
 use App\Models\FeePayment;
 use App\Models\HomeworkSubmission;
 use App\Models\Invoice;
-use App\Models\LibraryLoan;
 use App\Models\Staff;
 use App\Models\Student;
 use App\Models\TeacherClassAssignment;
@@ -206,24 +205,6 @@ class DashboardService
             );
         }
 
-        if ($user->can('library.view')) {
-            $issuedLoans = LibraryLoan::query()->where('status', 'issued');
-            $metrics[] = $this->metric(
-                'Books on loan',
-                (clone $issuedLoans)->count(),
-                'Copies currently issued to students',
-                'book',
-                '/library',
-            );
-            $metrics[] = $this->metric(
-                'Overdue books',
-                (clone $issuedLoans)->where('due_date', '<', today()->toDateString())->count(),
-                'Issued copies past their due date',
-                'book',
-                '/library',
-            );
-        }
-
         return [
             'roleLabel' => $user->getRoleNames()->implode(', ') ?: 'School member',
             'academicYear' => $academicYear?->name,
@@ -280,7 +261,7 @@ class DashboardService
             ['label' => 'Homework', 'href' => '/homework', 'permission' => 'homework.view'],
             ['label' => 'Exams & results', 'href' => '/exams', 'permission' => 'exams.view'],
             ['label' => 'Fees', 'href' => '/fees', 'permission' => 'fees.view'],
-            ['label' => 'Library', 'href' => '/library', 'permission' => 'library.view'],
+            ['label' => 'Books & Supplies', 'href' => '/supplies', 'permission' => 'supplies.dashboard.view'],
             ['label' => 'Notices', 'href' => '/notices', 'permission' => 'notices.view'],
             ['label' => 'Timetable', 'href' => '/timetable', 'permission' => 'timetable.view'],
             ['label' => 'Leave requests', 'href' => '/leave-requests', 'permission' => 'leave.view'],
@@ -291,7 +272,6 @@ class DashboardService
             ['label' => 'My results', 'href' => '/exams', 'permission' => 'portal.results.view', 'roles' => ['Student']],
             ['label' => 'Children’s results', 'href' => '/exams', 'permission' => 'portal.results.view', 'roles' => ['Parent']],
             ['label' => 'My fees', 'href' => '/fees', 'permission' => 'portal.fees.view'],
-            ['label' => 'My library', 'href' => '/library', 'permission' => 'portal.library.view'],
             ['label' => 'School notices', 'href' => '/notices', 'permission' => 'portal.notices.view'],
             ['label' => 'Request a certificate', 'href' => '/certificates', 'permission' => 'portal.certificates.request'],
             ['label' => 'Leave requests', 'href' => '/leave-requests', 'permission' => 'portal.leave.apply'],

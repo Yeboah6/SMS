@@ -19,8 +19,8 @@ use Illuminate\Validation\ValidationException;
 
 class ReportCardService
 {
-    public const CLASS_WEIGHT = 30;
-    public const EXAM_WEIGHT = 70;
+    public const CLASS_WEIGHT = 50;
+    public const EXAM_WEIGHT = 50;
 
     /** Columns on report_card_details that the page can edit. */
     private const DETAIL_FIELDS = [

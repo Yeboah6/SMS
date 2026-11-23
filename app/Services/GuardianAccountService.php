@@ -32,12 +32,6 @@ class GuardianAccountService
                 ]);
             }
 
-            if (Guardian::query()->where('user_id', $user->id)->whereKeyNot($guardian->id)->exists()) {
-                throw ValidationException::withMessages([
-                    'user_id' => 'This Parent account is already linked to another guardian profile.',
-                ]);
-            }
-
             $guardian->user()->associate($user);
             $guardian->save();
         });

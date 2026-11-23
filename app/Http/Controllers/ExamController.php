@@ -10,6 +10,7 @@ use App\Models\AcademicYear;
 use App\Models\Exam;
 use App\Models\ExamSubject;
 use App\Models\SchoolClass;
+use App\Models\TeacherSubjectAssignment;
 use App\Services\ExamService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -119,7 +120,7 @@ class ExamController extends Controller
     public function show(Request $request, Exam $exam): Response
     {
         $user = $request->user();
-        $this->authorizeExam($request, $exam);
+        [, $isTeacher, $staff] = $this->authorizeExam($request, $exam);
 
         $exam->load([
             'schoolClass:id,name',
@@ -127,6 +128,24 @@ class ExamController extends Controller
             'academicYear:id,name,status',
             'subjects' => fn ($query) => $query->with('subject:id,name')->withCount('marks')->orderBy('exam_date')->orderBy('id'),
         ]);
+
+        if ($isTeacher) {
+            $assignedSubjectIds = TeacherSubjectAssignment::query()
+                ->where('academic_year_id', $exam->academic_year_id)
+                ->where('staff_id', $staff?->id ?? 0)
+                ->whereHas('section', fn ($sections) => $sections
+                    ->where('class_id', $exam->class_id)
+                    ->where('academic_year_id', $exam->academic_year_id)
+                    ->whereHas('teacherClassAssignments', fn ($assignments) => $assignments
+                        ->where('academic_year_id', $exam->academic_year_id)
+                        ->where('staff_id', $staff?->id ?? 0)))
+                ->pluck('subject_id');
+
+            $exam->setRelation(
+                'subjects',
+                $exam->subjects->whereIn('subject_id', $assignedSubjectIds)->values(),
+            );
+        }
 
         $unlocked = $exam->academicYear->status !== AcademicYearStatus::Locked;
         $draft = $exam->status === 'draft';

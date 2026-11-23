@@ -158,7 +158,7 @@ export default function ReportCards({ exam, cards, single, can }) {
                 </div>
             </div>
 
-            {!single && <p className="mb-4 text-xs text-slate-500">Showing {visible.length} of {computed.length} students. Edit class scores and the fields on each card, then press Save. Clearing a saved attendance, arrears, closing date or class score brings back the automatic value.</p>}
+            {!single && <p className="mb-4 text-xs text-slate-500">Showing {visible.length} of {computed.length} students. Edit class scores and the fields on each card, then press Save. Clearing a saved attendance, arrears, closing date or class score brings back the automatic value. {can?.teacherScoped && 'Class scores are editable only for subjects assigned to you in your sections.'}</p>}
 
             <div className="rc-print space-y-8">
                 {visible.length === 0 && <p className="text-sm text-slate-500">{computed.length === 0 ? 'No students found in this class.' : 'No students match your search.'}</p>}
@@ -212,8 +212,8 @@ function Card({ card, exam, values, onClassScore, onDetail, canEdit }) {
                     <thead>
                         <tr className="border-b-2 border-slate-800 text-center text-xs font-bold uppercase">
                             <th className="border-r-2 border-slate-800 p-2 text-left">Subject</th>
-                            <th className="border-r border-slate-800 p-2">Class score<br />30%</th>
-                            <th className="border-r border-slate-800 p-2">Exams score<br />70%</th>
+                            <th className="border-r border-slate-800 p-2">Class score<br />50%</th>
+                            <th className="border-r border-slate-800 p-2">Exams score<br />50%</th>
                             <th className="border-r border-slate-800 p-2">Total score<br />100%</th>
                             <th className="border-r border-slate-800 p-2">Position</th>
                             <th className="p-2">Remarks</th>
@@ -229,7 +229,7 @@ function Card({ card, exam, values, onClassScore, onDetail, canEdit }) {
                                             type="number" min="0" max="30" step="0.1"
                                             value={r.classInput !== undefined ? r.classInput : (r.classScore ?? '')}
                                             onChange={(e) => onClassScore(id, r.subjectId, e.target.value)}
-                                            disabled={!canEdit}
+                                            disabled={!canEdit || !r.canEditClassScore}
                                             title={r.classSaved ? 'Saved class score' : 'Auto-calculated'}
                                             aria-label={`${r.subject} class score`}
                                             className="rc-input w-16 rounded border border-slate-300 bg-slate-50 px-1 py-0.5 text-center text-sm focus:border-teal-600 focus:ring-teal-600 print:border-0"

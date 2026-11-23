@@ -298,7 +298,6 @@ class StudentController extends Controller
         $eligibleParentAccounts = $canManageGuardianAccounts
             ? User::query()
                 ->whereHas('roles', fn ($query) => $query->where('name', 'Parent'))
-                ->whereDoesntHave('guardians')
                 ->orderBy('name')
                 ->get(['id', 'name', 'email'])
                 ->map(fn (User $parent): array => [

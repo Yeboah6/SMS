@@ -657,3 +657,170 @@ test('students cannot inspect examinations and guests must sign in', function ()
     $student = User::factory()->create();
     $this->actingAs($student)->get(route('exams.index'))->assertForbidden();
 });
+
+/**
+ * @return array{User, User, Staff, AcademicYear, SchoolClass, Section, Section, Subject, Subject, Student, Student, Exam}
+ */
+function createPublishedReportCardScenario(): array
+{
+    [$principal, $teacher, $staff, $year, $schoolClass, $sectionA, $sectionB, $math] = createExamScenario();
+    $science = Subject::query()->create([
+        'code' => 'EXAM-SCIENCE',
+        'name' => 'Science',
+    ]);
+    ClassSubject::query()->create([
+        'academic_year_id' => $year->id,
+        'class_id' => $schoolClass->id,
+        'subject_id' => $science->id,
+    ]);
+
+    TeacherClassAssignment::query()
+        ->where('staff_id', $staff->id)
+        ->where('section_id', $sectionB->id)
+        ->delete();
+    TeacherSubjectAssignment::query()
+        ->where('staff_id', $staff->id)
+        ->where('section_id', $sectionB->id)
+        ->delete();
+
+    [, $studentA] = createExamStudent($year, $schoolClass, $sectionA, 'EXAM-REPORT-A');
+    [, $studentB] = createExamStudent($year, $schoolClass, $sectionB, 'EXAM-REPORT-B');
+    $exam = app(ExamService::class)->create(examPayload($year, $schoolClass, [
+        [
+            'subject_id' => $math->id,
+            'exam_date' => today()->toDateString(),
+            'max_marks' => 100,
+            'pass_marks' => 40,
+        ],
+        [
+            'subject_id' => $science->id,
+            'exam_date' => today()->toDateString(),
+            'max_marks' => 100,
+            'pass_marks' => 40,
+        ],
+    ]), $principal);
+
+    foreach ($exam->subjects as $examSubject) {
+        foreach ([$studentA, $studentB] as $student) {
+            ExamMark::query()->create([
+                'exam_subject_id' => $examSubject->id,
+                'student_id' => $student->id,
+                'entered_by' => $principal->id,
+                'status' => 'present',
+                'marks_obtained' => 80,
+            ]);
+        }
+    }
+
+    $exam->update([
+        'status' => 'published',
+        'published_by' => $principal->id,
+        'published_at' => now(),
+    ]);
+
+    return [$principal, $teacher, $staff, $year, $schoolClass, $sectionA, $sectionB, $math, $science, $studentA, $studentB, $exam];
+}
+
+test('teachers see only assigned exam subjects on the exam details page', function () {
+    [, $teacher, , , , , , , , , , $exam] = createPublishedReportCardScenario();
+
+    $this->actingAs($teacher)->get(route('exams.show', $exam))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Exams/Show')
+            ->has('subjects', 1)
+            ->where('subjects.0.name', 'Mathematics'));
+});
+
+test('teachers see report cards for assigned sections and can edit class scores only for assigned subjects', function () {
+    [, $teacher, , , , , , , , $studentA, , $exam] = createPublishedReportCardScenario();
+
+    $this->actingAs($teacher)->get(route('exams.report-cards.index', $exam))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Exams/ReportCards')
+            ->has('cards', 1)
+            ->where('cards.0.student.id', $studentA->id)
+            ->where('cards.0.rows.0.canEditClassScore', true)
+            ->where('cards.0.rows.1.canEditClassScore', false)
+            ->where('can.saveClassScores', true));
+});
+
+test('teachers cannot view report cards for students outside their assigned sections', function () {
+    [, $teacher, , , , , , , , , $studentB, $exam] = createPublishedReportCardScenario();
+
+    $this->actingAs($teacher)->get(route('exams.report-cards.show', [$exam, $studentB->id]))
+        ->assertNotFound();
+});
+
+test('teachers cannot edit report-card details for students outside their assigned sections', function () {
+    [, $teacher, , , , , , , , , $studentB, $exam] = createPublishedReportCardScenario();
+
+    $this->actingAs($teacher)->post(route('exams.report-cards.save', $exam), [
+        'cards' => [[
+            'student_id' => $studentB->id,
+            'class_teacher_remarks' => 'Not assigned to this section.',
+        ]],
+    ])->assertForbidden();
+
+    $this->assertDatabaseMissing('report_card_details', [
+        'exam_id' => $exam->id,
+        'student_id' => $studentB->id,
+    ]);
+});
+
+test('teachers cannot save report-card class scores for unassigned subjects', function () {
+    [, $teacher, , , , , , , $science, $studentA, , $exam] = createPublishedReportCardScenario();
+
+    $this->actingAs($teacher)->post(route('exams.report-cards.save', $exam), [
+        'scores' => [[
+            'student_id' => $studentA->id,
+            'subject_id' => $science->id,
+            'score' => 25,
+        ]],
+    ])->assertForbidden();
+
+    $this->assertDatabaseEmpty('class_scores');
+});
+
+test('teachers can save report-card details and class scores for assigned students and subjects', function () {
+    [, $teacher, , , , , , $math, , $studentA, , $exam] = createPublishedReportCardScenario();
+
+    $this->actingAs($teacher)->post(route('exams.report-cards.save', $exam), [
+        'scores' => [[
+            'student_id' => $studentA->id,
+            'subject_id' => $math->id,
+            'score' => 25,
+        ]],
+        'cards' => [[
+            'student_id' => $studentA->id,
+            'class_teacher_remarks' => 'Excellent progress.',
+        ]],
+    ])->assertRedirect()
+        ->assertSessionHas('status', 'Report card changes saved.');
+
+    $this->assertDatabaseHas('class_scores', [
+        'exam_id' => $exam->id,
+        'student_id' => $studentA->id,
+        'subject_id' => $math->id,
+        'score' => 25,
+        'updated_by' => $teacher->id,
+    ]);
+    $this->assertDatabaseHas('report_card_details', [
+        'exam_id' => $exam->id,
+        'student_id' => $studentA->id,
+        'class_teacher_remarks' => 'Excellent progress.',
+        'updated_by' => $teacher->id,
+    ]);
+});
+
+test('teachers need both a class and subject assignment to access report cards', function () {
+    [, $teacher, $staff, , , $sectionA, , , , , , $exam] = createPublishedReportCardScenario();
+    TeacherClassAssignment::query()
+        ->where('staff_id', $staff->id)
+        ->where('section_id', $sectionA->id)
+        ->delete();
+
+    $this->actingAs($teacher)->get(route('exams.report-cards.index', $exam))
+        ->assertForbidden();
+});

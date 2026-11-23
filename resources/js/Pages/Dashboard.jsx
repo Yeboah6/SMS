@@ -35,9 +35,6 @@ export default function Dashboard({ dashboard }) {
                         <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
                             Your school operations at a glance.
                         </h2>
-                        {/* <p className="mt-3 max-w-xl text-sm leading-6 text-teal-50/90 sm:text-base">
-                            Review the items relevant to your role and jump directly to the next task.
-                        </p> */}
                     </div>
                     <div className="flex items-center gap-2 self-start rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-sm font-medium text-white sm:self-auto">
                         <CalendarDays aria-hidden="true" size={17} />
